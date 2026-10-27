@@ -29,6 +29,10 @@
 		A10000140000000000000001 /* HealthProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000140000000000000001 /* HealthProfileView.swift */; };
 		A10000150000000000000001 /* AdvisorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000150000000000000001 /* AdvisorView.swift */; };
 		A10000160000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000160000000000000001 /* SettingsView.swift */; };
+		A100001A0000000000000001 /* FoodDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100001E0000000000000001 /* FoodDictionary.swift */; };
+		A100001B0000000000000001 /* FoodDictionaryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100001F0000000000000001 /* FoodDictionaryPickerView.swift */; };
+		A100001C0000000000000001 /* AdMobManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000200000000000000001 /* AdMobManager.swift */; };
+		A100001D0000000000000001 /* AdBannerCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000210000000000000001 /* AdBannerCardView.swift */; };
 		A10000170000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000170000000000000001 /* Assets.xcassets */; };
 		A10000180000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F10000180000000000000001 /* PrivacyInfo.xcprivacy */; };
 		A10000190000000000000001 /* HealthNoteWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = P10000020000000000000001 /* HealthNoteWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -92,6 +96,10 @@
 		F100001B0000000000000001 /* HealthNote.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HealthNote/Resources/HealthNote.entitlements; sourceTree = "<group>"; };
 		F100001C0000000000000001 /* Widget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = HealthNote/Widgets/Widget-Info.plist; sourceTree = "<group>"; };
 		F100001D0000000000000001 /* HealthNoteWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HealthNote/Widgets/HealthNoteWidget.entitlements; sourceTree = "<group>"; };
+		F100001E0000000000000001 /* FoodDictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Models/FoodDictionary.swift; sourceTree = "<group>"; };
+		F100001F0000000000000001 /* FoodDictionaryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/Meals/FoodDictionaryPickerView.swift; sourceTree = "<group>"; };
+		F10000200000000000000001 /* AdMobManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Services/AdMobManager.swift; sourceTree = "<group>"; };
+		F10000210000000000000001 /* AdBannerCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/DesignSystem/Components/AdBannerCardView.swift; sourceTree = "<group>"; };
 		P10000010000000000000001 /* HealthNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		P10000020000000000000001 /* HealthNoteWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HealthNoteWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -147,6 +155,10 @@
 				F10000140000000000000001 /* HealthProfileView.swift */,
 				F10000150000000000000001 /* AdvisorView.swift */,
 				F10000160000000000000001 /* SettingsView.swift */,
+				F100001E0000000000000001 /* FoodDictionary.swift */,
+				F100001F0000000000000001 /* FoodDictionaryPickerView.swift */,
+				F10000200000000000000001 /* AdMobManager.swift */,
+				F10000210000000000000001 /* AdBannerCardView.swift */,
 				F10000190000000000000001 /* HealthNoteWidget.swift */,
 				F10000170000000000000001 /* Assets.xcassets */,
 				F10000180000000000000001 /* PrivacyInfo.xcprivacy */,
@@ -291,6 +303,10 @@
 				A10000140000000000000001 /* HealthProfileView.swift in Sources */,
 				A10000150000000000000001 /* AdvisorView.swift in Sources */,
 				A10000160000000000000001 /* SettingsView.swift in Sources */,
+				A100001A0000000000000001 /* FoodDictionary.swift in Sources */,
+				A100001B0000000000000001 /* FoodDictionaryPickerView.swift in Sources */,
+				A100001C0000000000000001 /* AdMobManager.swift in Sources */,
+				A100001D0000000000000001 /* AdBannerCardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

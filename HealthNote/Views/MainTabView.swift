@@ -54,6 +54,9 @@ public struct MainTabView: View {
         .onOpenURL { url in
             handleDeepLink(url: url)
         }
+        .task {
+            await AdMobManager.shared.requestATTAndStartAds()
+        }
     }
 
     /// ウィジェットや通知からのディープリンク処理（例: healthnote://add-meal）

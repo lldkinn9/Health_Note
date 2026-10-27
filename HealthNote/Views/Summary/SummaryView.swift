@@ -47,6 +47,9 @@ public struct SummaryView: View {
                     // 4. 主要バイタルセクション（Apple HealthKit）
                     vitalsSection
 
+                    // 5. カード埋め込み型バナー広告（案A）
+                    AdBannerCardView(placementName: "summary_bottom")
+
                     Spacer().frame(height: 24)
                 }
                 .padding(.horizontal, 16)

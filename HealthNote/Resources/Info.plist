@@ -35,6 +35,23 @@
     <key>NSPhotoLibraryUsageDescription</key>
     <string>保存された食事の写真を選択して、Gemini AIで栄養素やカロリーを自動解析するために写真ライブラリを使用します。</string>
 
+    <!-- ATT (App Tracking Transparency) 広告トラッキング許可説明 -->
+    <key>NSUserTrackingUsageDescription</key>
+    <string>お客様のご興味に合った最適な広告を表示し、本アプリを無料で提供し続けるために識別子を使用します。許可しない場合でもすべての機能を無料でご利用いただけます。</string>
+
+    <!-- Google AdMob 設定（本番配信時はご自身のAdMob App ID / Banner Unit IDに書き換えてください） -->
+    <key>GADApplicationIdentifier</key>
+    <string>ca-app-pub-3940256099942544~1458002511</string>
+    <key>GADBannerAdUnitID</key>
+    <string>ca-app-pub-3940256099942544/2435281174</string>
+    <key>SKAdNetworkItems</key>
+    <array>
+        <dict>
+            <key>SKAdNetworkIdentifier</key>
+            <string>cstr6suwn9.skadnetwork</string>
+        </dict>
+    </array>
+
     <!-- ウィジェット用ディープリンク URL Scheme -->
     <key>CFBundleURLTypes</key>
     <array>

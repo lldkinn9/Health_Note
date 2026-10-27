@@ -61,6 +61,9 @@ public struct MealsView: View {
                     // 5. 【最下部】AIアドバイザー評価ブロック
                     aiDailyEvaluationBlock
 
+                    // 6. カード埋め込み型バナー広告（案A）
+                    AdBannerCardView(placementName: "meals_bottom")
+
                     Spacer().frame(height: 30)
                 }
                 .padding(.horizontal, 16)

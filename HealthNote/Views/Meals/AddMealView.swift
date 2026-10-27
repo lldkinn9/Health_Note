@@ -23,6 +23,9 @@ public struct AddMealView: View {
     @State private var analysisAdvice: String? = nil
     @State private var errorMessage: String? = nil
 
+    // 食品辞書・過去履歴ピッカー
+    @State private var showingFoodDictionary: Bool = false
+
     public init(defaultMealType: MealType = .lunch) {
         _mealType = State(initialValue: defaultMealType)
     }
@@ -30,6 +33,43 @@ public struct AddMealView: View {
     public var body: some View {
         NavigationStack {
             Form {
+                // 0. 食品辞書・過去の履歴からかんたん自動入力（APIキー不要・主役機能）
+                Section(
+                    header: Text("かんたん自動入力（食品辞書・履歴）"),
+                    footer: Text("定番メニュー約70品目の栄養成分辞書（複数組み合わせ・分量調整対応）や、過去に記録した食事履歴からワンタップで自動入力できます。")
+                ) {
+                    Button(action: {
+                        showingFoodDictionary = true
+                    }) {
+                        HStack(spacing: 10) {
+                            ZStack {
+                                Circle()
+                                    .fill(AppTheme.emerald.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "book.pages.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(AppTheme.emerald)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("📖 食品辞書・過去の記録から選ぶ")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.primary)
+                                Text("白米・鶏むね・定食・コンビニ・プロテイン等")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
                 // 1. 写真の添付・AI自動解析（任意オプション）
                 Section(header: Text("写真の添付・AI自動解析（任意）")) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -162,6 +202,21 @@ public struct AddMealView: View {
                             .frame(width: 70)
                         Text("g").foregroundColor(.secondary)
                     }
+
+                    // PFCグラム数からカロリーを自動計算する補助ボタン
+                    if protein > 0 || fat > 0 || carbs > 0 {
+                        Button(action: {
+                            let calc = (protein * 4.0) + (fat * 9.0) + (carbs * 4.0)
+                            calories = calc.rounded()
+                        }) {
+                            HStack {
+                                Image(systemName: "function")
+                                Text("P・F・Cからカロリーを自動計算（\(Int((protein * 4 + fat * 9 + carbs * 4).rounded())) kcal）")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(AppTheme.emerald)
+                        }
+                    }
                 }
 
                 // 4. メモ
@@ -191,6 +246,15 @@ public struct AddMealView: View {
                             analyzeSelectedImage()
                         }
                     }
+                }
+            }
+            .sheet(isPresented: $showingFoodDictionary) {
+                FoodDictionaryPickerView { selectedName, selectedCal, selectedP, selectedF, selectedC in
+                    self.name = selectedName
+                    self.calories = selectedCal
+                    self.protein = selectedP
+                    self.fat = selectedF
+                    self.carbs = selectedC
                 }
             }
             .alert("エラー", isPresented: Binding(
