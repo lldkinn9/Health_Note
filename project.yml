@@ -2,7 +2,7 @@ name: HealthNote
 options:
   bundleIdPrefix: com.lldkinn9
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "17.6"
   xcodeVersion: "16.0"
   createIntermediateGroups: true
 
@@ -21,7 +21,7 @@ targets:
   HealthNote:
     type: application
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "17.6"
     sources:
       - path: HealthNote/App
       - path: HealthNote/DesignSystem
@@ -47,7 +47,7 @@ targets:
   HealthNoteWidgetExtension:
     type: app-extension
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "17.6"
     sources:
       - path: HealthNote/Widgets/HealthNoteWidget.swift
       - path: HealthNote/DesignSystem/Theme.swift
