@@ -28,6 +28,7 @@ targets:
       - path: HealthNote/Models
       - path: HealthNote/Services
       - path: HealthNote/Views
+      - path: HealthNote/Resources/Assets.xcassets
       - path: HealthNote/Resources/PrivacyInfo.xcprivacy
         buildPhase: resources
     info:

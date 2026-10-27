@@ -1,0 +1,516 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* HealthNoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000010000000000000001 /* HealthNoteApp.swift */; };
+		A10000020000000000000001 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000020000000000000001 /* Theme.swift */; };
+		A10000030000000000000001 /* PFCBalanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000030000000000000001 /* PFCBalanceView.swift */; };
+		A10000040000000000000001 /* MetricCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000040000000000000001 /* MetricCard.swift */; };
+		A10000050000000000000001 /* FloatingSaveBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000050000000000000001 /* FloatingSaveBar.swift */; };
+		A10000060000000000000001 /* Meal.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000060000000000000001 /* Meal.swift */; };
+		A10000070000000000000001 /* HealthProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000070000000000000001 /* HealthProfile.swift */; };
+		A10000080000000000000001 /* MedicationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000080000000000000001 /* MedicationItem.swift */; };
+		A10000090000000000000001 /* AdvisorChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000090000000000000001 /* AdvisorChatMessage.swift */; };
+		A100000A0000000000000001 /* DailyAdvice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000A0000000000000001 /* DailyAdvice.swift */; };
+		A100000B0000000000000001 /* ModelContainerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000B0000000000000001 /* ModelContainerFactory.swift */; };
+		A100000C0000000000000001 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000C0000000000000001 /* KeychainManager.swift */; };
+		A100000D0000000000000001 /* GeminiService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000D0000000000000001 /* GeminiService.swift */; };
+		A100000E0000000000000001 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000E0000000000000001 /* HealthKitManager.swift */; };
+		A100000F0000000000000001 /* WidgetDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000F0000000000000001 /* WidgetDataManager.swift */; };
+		A10000100000000000000001 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000100000000000000001 /* MainTabView.swift */; };
+		A10000110000000000000001 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000110000000000000001 /* SummaryView.swift */; };
+		A10000120000000000000001 /* MealsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000120000000000000001 /* MealsView.swift */; };
+		A10000130000000000000001 /* AddMealView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000130000000000000001 /* AddMealView.swift */; };
+		A10000140000000000000001 /* HealthProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000140000000000000001 /* HealthProfileView.swift */; };
+		A10000150000000000000001 /* AdvisorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000150000000000000001 /* AdvisorView.swift */; };
+		A10000160000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000160000000000000001 /* SettingsView.swift */; };
+		A10000170000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000170000000000000001 /* Assets.xcassets */; };
+		A10000180000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F10000180000000000000001 /* PrivacyInfo.xcprivacy */; };
+		A10000190000000000000001 /* HealthNoteWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = P10000020000000000000001 /* HealthNoteWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A20000010000000000000001 /* HealthNoteWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000190000000000000001 /* HealthNoteWidget.swift */; };
+		A20000020000000000000001 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000020000000000000001 /* Theme.swift */; };
+		A20000030000000000000001 /* WidgetDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000F0000000000000001 /* WidgetDataManager.swift */; };
+		A20000040000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F10000180000000000000001 /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C10000010000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 900000010000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T10000020000000000000001;
+			remoteInfo = HealthNoteWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E10000010000000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A10000190000000000000001 /* HealthNoteWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		F10000010000000000000001 /* HealthNoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/App/HealthNoteApp.swift; sourceTree = "<group>"; };
+		F10000020000000000000001 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/DesignSystem/Theme.swift; sourceTree = "<group>"; };
+		F10000030000000000000001 /* PFCBalanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/DesignSystem/Components/PFCBalanceView.swift; sourceTree = "<group>"; };
+		F10000040000000000000001 /* MetricCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/DesignSystem/Components/MetricCard.swift; sourceTree = "<group>"; };
+		F10000050000000000000001 /* FloatingSaveBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/DesignSystem/Components/FloatingSaveBar.swift; sourceTree = "<group>"; };
+		F10000060000000000000001 /* Meal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Models/Meal.swift; sourceTree = "<group>"; };
+		F10000070000000000000001 /* HealthProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Models/HealthProfile.swift; sourceTree = "<group>"; };
+		F10000080000000000000001 /* MedicationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Models/MedicationItem.swift; sourceTree = "<group>"; };
+		F10000090000000000000001 /* AdvisorChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Models/AdvisorChatMessage.swift; sourceTree = "<group>"; };
+		F100000A0000000000000001 /* DailyAdvice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Models/DailyAdvice.swift; sourceTree = "<group>"; };
+		F100000B0000000000000001 /* ModelContainerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Models/ModelContainerFactory.swift; sourceTree = "<group>"; };
+		F100000C0000000000000001 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Services/KeychainManager.swift; sourceTree = "<group>"; };
+		F100000D0000000000000001 /* GeminiService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Services/GeminiService.swift; sourceTree = "<group>"; };
+		F100000E0000000000000001 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Services/HealthKitManager.swift; sourceTree = "<group>"; };
+		F100000F0000000000000001 /* WidgetDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Services/WidgetDataManager.swift; sourceTree = "<group>"; };
+		F10000100000000000000001 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/MainTabView.swift; sourceTree = "<group>"; };
+		F10000110000000000000001 /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/Summary/SummaryView.swift; sourceTree = "<group>"; };
+		F10000120000000000000001 /* MealsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/Meals/MealsView.swift; sourceTree = "<group>"; };
+		F10000130000000000000001 /* AddMealView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/Meals/AddMealView.swift; sourceTree = "<group>"; };
+		F10000140000000000000001 /* HealthProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/HealthProfile/HealthProfileView.swift; sourceTree = "<group>"; };
+		F10000150000000000000001 /* AdvisorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/Advisor/AdvisorView.swift; sourceTree = "<group>"; };
+		F10000160000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/Settings/SettingsView.swift; sourceTree = "<group>"; };
+		F10000170000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = HealthNote/Resources/Assets.xcassets; sourceTree = "<group>"; };
+		F10000180000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = HealthNote/Resources/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F10000190000000000000001 /* HealthNoteWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Widgets/HealthNoteWidget.swift; sourceTree = "<group>"; };
+		F100001A0000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = HealthNote/Resources/Info.plist; sourceTree = "<group>"; };
+		F100001B0000000000000001 /* HealthNote.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HealthNote/Resources/HealthNote.entitlements; sourceTree = "<group>"; };
+		F100001C0000000000000001 /* Widget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = HealthNote/Widgets/Widget-Info.plist; sourceTree = "<group>"; };
+		F100001D0000000000000001 /* HealthNoteWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HealthNote/Widgets/HealthNoteWidget.entitlements; sourceTree = "<group>"; };
+		P10000010000000000000001 /* HealthNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		P10000020000000000000001 /* HealthNoteWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HealthNoteWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B10000010000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000010000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G00000010000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				G10000010000000000000001 /* HealthNote */,
+				G20000010000000000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G10000010000000000000001 /* HealthNote */ = {
+			isa = PBXGroup;
+			children = (
+				F10000010000000000000001 /* HealthNoteApp.swift */,
+				F10000020000000000000001 /* Theme.swift */,
+				F10000030000000000000001 /* PFCBalanceView.swift */,
+				F10000040000000000000001 /* MetricCard.swift */,
+				F10000050000000000000001 /* FloatingSaveBar.swift */,
+				F10000060000000000000001 /* Meal.swift */,
+				F10000070000000000000001 /* HealthProfile.swift */,
+				F10000080000000000000001 /* MedicationItem.swift */,
+				F10000090000000000000001 /* AdvisorChatMessage.swift */,
+				F100000A0000000000000001 /* DailyAdvice.swift */,
+				F100000B0000000000000001 /* ModelContainerFactory.swift */,
+				F100000C0000000000000001 /* KeychainManager.swift */,
+				F100000D0000000000000001 /* GeminiService.swift */,
+				F100000E0000000000000001 /* HealthKitManager.swift */,
+				F100000F0000000000000001 /* WidgetDataManager.swift */,
+				F10000100000000000000001 /* MainTabView.swift */,
+				F10000110000000000000001 /* SummaryView.swift */,
+				F10000120000000000000001 /* MealsView.swift */,
+				F10000130000000000000001 /* AddMealView.swift */,
+				F10000140000000000000001 /* HealthProfileView.swift */,
+				F10000150000000000000001 /* AdvisorView.swift */,
+				F10000160000000000000001 /* SettingsView.swift */,
+				F10000190000000000000001 /* HealthNoteWidget.swift */,
+				F10000170000000000000001 /* Assets.xcassets */,
+				F10000180000000000000001 /* PrivacyInfo.xcprivacy */,
+				F100001A0000000000000001 /* Info.plist */,
+				F100001B0000000000000001 /* HealthNote.entitlements */,
+				F100001C0000000000000001 /* Widget-Info.plist */,
+				F100001D0000000000000001 /* HealthNoteWidget.entitlements */,
+			);
+			name = HealthNote;
+			sourceTree = "<group>";
+		};
+		G20000010000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				P10000010000000000000001 /* HealthNote.app */,
+				P10000020000000000000001 /* HealthNoteWidgetExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T10000010000000000000001 /* HealthNote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L10000020000000000000001 /* Build configuration list for PBXNativeTarget "HealthNote" */;
+			buildPhases = (
+				S10000010000000000000001 /* Sources */,
+				B10000010000000000000001 /* Frameworks */,
+				R10000010000000000000001 /* Resources */,
+				E10000010000000000000001 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D10000010000000000000001 /* PBXTargetDependency */,
+			);
+			name = HealthNote;
+			productName = HealthNote;
+			productReference = P10000010000000000000001 /* HealthNote.app */;
+			productType = "com.apple.product-type.application";
+		};
+		T10000020000000000000001 /* HealthNoteWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L10000030000000000000001 /* Build configuration list for PBXNativeTarget "HealthNoteWidgetExtension" */;
+			buildPhases = (
+				S20000010000000000000001 /* Sources */,
+				B20000010000000000000001 /* Frameworks */,
+				R20000010000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HealthNoteWidgetExtension;
+			productName = HealthNoteWidgetExtension;
+			productReference = P10000020000000000000001 /* HealthNoteWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		900000010000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					T10000010000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					T10000020000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = L10000010000000000000001 /* Build configuration list for PBXProject "HealthNote" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = ja;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				ja,
+				Base,
+			);
+			mainGroup = G00000010000000000000001;
+			productRefGroup = G20000010000000000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T10000010000000000000001 /* HealthNote */,
+				T10000020000000000000001 /* HealthNoteWidgetExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R10000010000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000170000000000000001 /* Assets.xcassets in Resources */,
+				A10000180000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		R20000010000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A20000040000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S10000010000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000001 /* HealthNoteApp.swift in Sources */,
+				A10000020000000000000001 /* Theme.swift in Sources */,
+				A10000030000000000000001 /* PFCBalanceView.swift in Sources */,
+				A10000040000000000000001 /* MetricCard.swift in Sources */,
+				A10000050000000000000001 /* FloatingSaveBar.swift in Sources */,
+				A10000060000000000000001 /* Meal.swift in Sources */,
+				A10000070000000000000001 /* HealthProfile.swift in Sources */,
+				A10000080000000000000001 /* MedicationItem.swift in Sources */,
+				A10000090000000000000001 /* AdvisorChatMessage.swift in Sources */,
+				A100000A0000000000000001 /* DailyAdvice.swift in Sources */,
+				A100000B0000000000000001 /* ModelContainerFactory.swift in Sources */,
+				A100000C0000000000000001 /* KeychainManager.swift in Sources */,
+				A100000D0000000000000001 /* GeminiService.swift in Sources */,
+				A100000E0000000000000001 /* HealthKitManager.swift in Sources */,
+				A100000F0000000000000001 /* WidgetDataManager.swift in Sources */,
+				A10000100000000000000001 /* MainTabView.swift in Sources */,
+				A10000110000000000000001 /* SummaryView.swift in Sources */,
+				A10000120000000000000001 /* MealsView.swift in Sources */,
+				A10000130000000000000001 /* AddMealView.swift in Sources */,
+				A10000140000000000000001 /* HealthProfileView.swift in Sources */,
+				A10000150000000000000001 /* AdvisorView.swift in Sources */,
+				A10000160000000000000001 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S20000010000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A20000010000000000000001 /* HealthNoteWidget.swift in Sources */,
+				A20000020000000000000001 /* Theme.swift in Sources */,
+				A20000030000000000000001 /* WidgetDataManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D10000010000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T10000020000000000000001 /* HealthNoteWidgetExtension */;
+			targetProxy = C10000010000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		K10000010000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		K10000020000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		K20000010000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HealthNote/Resources/HealthNote.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = HealthNote/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lldkinn9.Health-Note";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		K20000020000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HealthNote/Resources/HealthNote.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = HealthNote/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lldkinn9.Health-Note";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		K30000010000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HealthNote/Widgets/HealthNoteWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = "HealthNote/Widgets/Widget-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lldkinn9.Health-Note.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		K30000020000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HealthNote/Widgets/HealthNoteWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = "HealthNote/Widgets/Widget-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lldkinn9.Health-Note.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		L10000010000000000000001 /* Build configuration list for PBXProject "HealthNote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				K10000010000000000000001 /* Debug */,
+				K10000020000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L10000020000000000000001 /* Build configuration list for PBXNativeTarget "HealthNote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				K20000010000000000000001 /* Debug */,
+				K20000020000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L10000030000000000000001 /* Build configuration list for PBXNativeTarget "HealthNoteWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				K30000010000000000000001 /* Debug */,
+				K30000020000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 900000010000000000000001 /* Project object */;
+}
