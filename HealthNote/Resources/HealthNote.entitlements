@@ -5,7 +5,7 @@
 	<!-- App Group (WidgetKitとのデータ共有用) -->
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.healthnote.app</string>
+		<string>group.com.lldkinn9.Health-Note</string>
 	</array>
 
 	<!-- Apple HealthKit -->
@@ -17,7 +17,7 @@
 	<!-- iCloud / CloudKit Private Database -->
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
-		<string>iCloud.com.healthnote.app</string>
+		<string>iCloud.com.lldkinn9.Health-Note</string>
 	</array>
 	<key>com.apple.developer.icloud-services</key>
 	<array>

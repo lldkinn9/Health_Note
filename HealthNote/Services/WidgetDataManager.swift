@@ -38,7 +38,7 @@ public final class WidgetDataManager {
     public static let shared = WidgetDataManager()
 
     /// App Group 識別子（XcodeプロジェクトのCapabilitiesと一致させる）
-    public static let appGroupIdentifier = "group.com.healthnote.app"
+    public static let appGroupIdentifier = "group.com.lldkinn9.Health-Note"
     private static let storageKey = "widget_summary_data_key"
 
     private var sharedDefaults: UserDefaults? {
