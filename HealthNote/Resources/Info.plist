@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>ja_JP</string>
+    <key>CFBundleDisplayName</key>
+    <string>My Trainer</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+
+    <!-- HealthKit 権限説明 -->
+    <key>NSHealthShareUsageDescription</key>
+    <string>歩数、消費カロリー、心拍数、睡眠データを読み取り、本日の健康サマリを表示するためにヘルスケアデータを使用します。</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>アプリで記録した食事のカロリーおよびPFC栄養素をヘルスケアに書き込み保存するために使用します。</string>
+
+    <!-- カメラ・写真ライブラリ 権限説明 -->
+    <key>NSCameraUsageDescription</key>
+    <string>食事の写真を撮影して、Gemini AIで栄養素やカロリーを自動解析するためにカメラを使用します。</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>保存された食事の写真を選択して、Gemini AIで栄養素やカロリーを自動解析するために写真ライブラリを使用します。</string>
+
+    <!-- ウィジェット用ディープリンク URL Scheme -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.healthnote.app</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>healthnote</string>
+            </array>
+        </dict>
+    </array>
+
+    <!-- フルスクリーン表示（SwiftUI必須） -->
+    <key>UILaunchScreen</key>
+    <dict/>
+
+    <!-- CloudKit 自動同期用バックグラウンドモード -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+    </array>
+
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+</dict>
+</plist>

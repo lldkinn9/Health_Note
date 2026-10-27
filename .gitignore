@@ -1,0 +1,22 @@
+# Xcode
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / Secrets / Reviewer Notes with Test Key
+.env
+.env.*
+HealthNote/Resources/APP_REVIEW_NOTES.md
+
+

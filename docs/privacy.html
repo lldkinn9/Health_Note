@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>プライバシーポリシー＆医療免責事項 - My Trainer（ヘルスノート）</title>
+  <style>
+    :root {
+      --emerald: #10B981;
+      --navy: #0F172A;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --text: #1E293B;
+      --muted: #64748B;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      line-height: 1.7;
+    }
+    header {
+      background: var(--navy);
+      color: #fff;
+      padding: 36px 20px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+    }
+    main {
+      max-width: 760px;
+      margin: 32px auto;
+      padding: 0 20px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    h2 {
+      font-size: 18px;
+      border-left: 4px solid var(--emerald);
+      padding-left: 12px;
+      margin-top: 0;
+    }
+    a {
+      color: var(--emerald);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    footer {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>プライバシーポリシー ＆ 医療免責事項</h1>
+    <p>My Trainer（ヘルスノート）</p>
+  </header>
+  <main>
+    <div class="card">
+      <h2>1. 開発者サーバーの不使用（完全サーバーレス設計）</h2>
+      <p>本アプリは、開発者側で管理・運用する外部データベースやWebサーバーを一切持たない完全サーバーレス設計を採用しています。お客様の食事記録、身体データ、ヘルスケア情報、チャット履歴が開発者のサーバーに収集・送信・保存されることは一切ありません。</p>
+    </div>
+
+    <div class="card">
+      <h2>2. データの保存と同期（Apple CloudKit）</h2>
+      <p>アプリ内で記録されたすべてのデータは、お客様ご自身のiOS端末内、およびお客様個人のiCloudアカウント（Apple CloudKit Private Database）にのみ暗号化されて保存・同期されます。開発者を含め第三者がこれらのデータにアクセスすることは不可能です。</p>
+      <p>また、アプリ内の「設定」＞「全データを完全に初期化・削除」を実行することで、いつでもお客様ご自身の操作ですべてのデータを完全に消去することができます。</p>
+    </div>
+
+    <div class="card">
+      <h2>3. Apple HealthKit（ヘルスケア）データの取り扱い</h2>
+      <p>お客様が明示的に許可した場合に限り、Apple HealthKitから歩数、消費エネルギー、心拍数、睡眠時間データを読み取り、アプリ内のサマリ画面に表示します。また、記録した食事のカロリー・PFC栄養素をHealthKitへ書き込みます。HealthKitから取得したデータを広告・マーケティング目的で使用したり、外部の第三者へ売却・共有することは一切ありません。</p>
+    </div>
+
+    <div class="card">
+      <h2>4. 任意の第三者AIサービス（Google Gemini API）の利用について</h2>
+      <p>お客様が任意で設定したGoogle Gemini APIキーは、iOS端末のセキュア領域（Keychain）にのみ暗号化保存されます。AI写真解析およびAIアドバイザー機能を使用する際、解析対象のデータは端末からGoogleのAPIエンドポイントへ直接HTTPS通信で送信されます。</p>
+      <p>※Google AI Studioの無料枠（Free Tier）のAPIキーをご利用の場合、Googleの利用規約（Gemini API Additional Terms of Service）に基づき、送信されたデータがGoogleのモデル改善に利用される場合があります。詳細はGoogleの公式規約をご確認ください。</p>
+    </div>
+
+    <div class="card">
+      <h2>5. 医療免責事項および公的出典（医師法・薬機法・Guideline 1.4.1 準拠）</h2>
+      <p>本アプリは、一般的な生活習慣の改善、健康維持および栄養管理をサポートするセルフケア・ツールであり、医療機器ではありません。</p>
+      <ul>
+        <li><strong>医師法第17条に基づく免責</strong>：本アプリ内のAIアドバイザーや食事解析結果は、医師や医療専門家による診断・治療・処方の代替となるものではありません。体調に異変がある場合や持病・服薬中の方は、必ず医師または専門医療機関にご相談ください。</li>
+        <li><strong>薬機法に基づく表記</strong>：本アプリで提示される栄養素や食材に関する情報は一般的な栄養学上の知見であり、特定の疾病の治療・予防や医薬品的な効能効果を標榜するものではありません。</li>
+        <li><strong>公的出典・参考基準</strong>：本アプリ内のBMI計算式（体重kg ÷ [身長m]²、普通体重18.5〜25.0未満）およびPFC栄養目標の参考値は、以下の公的統計基準に基づいています。
+          <ul>
+            <li><a href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html" target="_blank" rel="noopener">厚生労働省「日本人の食事摂取基準」</a></li>
+            <li><a href="https://www.e-healthnet.mhlw.go.jp/information/dictionary/metabolic/ym-002.html" target="_blank" rel="noopener">厚生労働省 e-ヘルスネット「BMI（体格指数）の算出と判定基準」</a></li>
+            <li><a href="https://www.mext.go.jp/a_menu/syokuhinseibun/index.htm" target="_blank" rel="noopener">文部科学省「日本食品標準成分表」</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <p><a href="./index.html">← サポートトップページへ戻る</a></p>
+  </main>
+  <footer>
+    &copy; 2026 My Trainer (HealthNote). All rights reserved.
+  </footer>
+</body>
+</html>
+
