@@ -62,10 +62,10 @@ public struct AdvisorView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                     }
-                    .onChange(of: messages.count) { _ in
+                    .onChange(of: messages.count) { _, _ in
                         scrollToBottom(proxy: proxy)
                     }
-                    .onChange(of: isSending) { sending in
+                    .onChange(of: isSending) { _, sending in
                         if sending {
                             withAnimation {
                                 proxy.scrollTo("loading_indicator", anchor: .bottom)

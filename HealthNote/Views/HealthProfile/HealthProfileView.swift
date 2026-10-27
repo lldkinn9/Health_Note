@@ -159,7 +159,7 @@ public struct HealthProfileView: View {
                     Spacer()
                     TextField("ニックネーム", text: $nickname)
                         .multilineTextAlignment(.trailing)
-                        .onChange(of: nickname) { _ in markChanged() }
+                        .onChange(of: nickname) { _, _ in markChanged() }
                 }
 
                 Divider()
@@ -175,7 +175,7 @@ public struct HealthProfileView: View {
                         Text("その他").tag("その他")
                     }
                     .pickerStyle(.menu)
-                    .onChange(of: genderRaw) { _ in markChanged() }
+                    .onChange(of: genderRaw) { _, _ in markChanged() }
                 }
 
                 Divider()
@@ -188,7 +188,7 @@ public struct HealthProfileView: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
-                        .onChange(of: heightCm) { _ in markChanged() }
+                        .onChange(of: heightCm) { _, _ in markChanged() }
                     Text("cm").foregroundColor(.secondary)
                 }
 
@@ -202,7 +202,7 @@ public struct HealthProfileView: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
-                        .onChange(of: weightKg) { _ in markChanged() }
+                        .onChange(of: weightKg) { _, _ in markChanged() }
                     Text("kg").foregroundColor(.secondary)
                 }
 
@@ -216,7 +216,7 @@ public struct HealthProfileView: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
-                        .onChange(of: targetWeightKg) { _ in markChanged() }
+                        .onChange(of: targetWeightKg) { _, _ in markChanged() }
                     Text("kg").foregroundColor(.secondary)
                 }
 
@@ -232,7 +232,7 @@ public struct HealthProfileView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .onChange(of: activityLevel) { _ in markChanged() }
+                    .onChange(of: activityLevel) { _, _ in markChanged() }
                 }
             }
             .padding(16)
@@ -256,7 +256,7 @@ public struct HealthProfileView: View {
                         .font(.system(size: 18, weight: .black, design: .rounded))
                         .foregroundColor(AppTheme.calorieIntake)
                         .frame(width: 90)
-                        .onChange(of: targetCalories) { _ in markChanged() }
+                        .onChange(of: targetCalories) { _, _ in markChanged() }
                     Text("kcal").foregroundColor(.secondary)
                 }
 
@@ -312,7 +312,7 @@ public struct HealthProfileView: View {
                 TextField("0", value: value, format: .number)
                     .keyboardType(.numberPad)
                     .font(.system(size: 16, weight: .black, design: .rounded))
-                    .onChange(of: value.wrappedValue) { _ in markChanged() }
+                    .onChange(of: value.wrappedValue) { _, _ in markChanged() }
                 Text("g")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
@@ -349,7 +349,7 @@ public struct HealthProfileView: View {
             TextField(placeholder, text: text, axis: .vertical)
                 .lineLimit(1...3)
                 .font(.system(size: 14))
-                .onChange(of: text.wrappedValue) { _ in markChanged() }
+                .onChange(of: text.wrappedValue) { _, _ in markChanged() }
         }
     }
 

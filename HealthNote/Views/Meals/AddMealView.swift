@@ -182,7 +182,7 @@ public struct AddMealView: View {
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isAnalyzing)
                 }
             }
-            .onChange(of: selectedPhotoItem) { newItem in
+            .onChange(of: selectedPhotoItem) { _, newItem in
                 Task {
                     if let data = try? await newItem?.loadTransferable(type: Data.self) {
                         self.selectedImageData = data
