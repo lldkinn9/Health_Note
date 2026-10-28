@@ -39,11 +39,11 @@
     <key>NSUserTrackingUsageDescription</key>
     <string>お客様のご興味に合った最適な広告を表示し、本アプリを無料で提供し続けるために識別子を使用します。許可しない場合でもすべての機能を無料でご利用いただけます。</string>
 
-    <!-- Google AdMob 設定（本番配信時はご自身のAdMob App ID / Banner Unit IDに書き換えてください） -->
+    <!-- Google AdMob 設定（本番App ID / バナー広告ユニットID） -->
     <key>GADApplicationIdentifier</key>
-    <string>ca-app-pub-3940256099942544~1458002511</string>
+    <string>ca-app-pub-1148610655574304~3997689329</string>
     <key>GADBannerAdUnitID</key>
-    <string>ca-app-pub-3940256099942544/2435281174</string>
+    <string>ca-app-pub-1148610655574304/9676557268</string>
     <key>SKAdNetworkItems</key>
     <array>
         <dict>
