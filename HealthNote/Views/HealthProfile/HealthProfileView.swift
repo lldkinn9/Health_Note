@@ -84,6 +84,10 @@ public struct HealthProfileView: View {
                     }
                 )
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                // 未保存の変更バー（FloatingSaveBar）表示中は干渉を防ぐためバナーを自動的に隠す
+                AdBottomBannerBar(isTemporarilyHidden: hasChanges)
+            }
             .navigationTitle("マイカルテ")
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingAddMedication) {

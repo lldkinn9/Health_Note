@@ -33,6 +33,7 @@
 		A100001B0000000000000001 /* FoodDictionaryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100001F0000000000000001 /* FoodDictionaryPickerView.swift */; };
 		A100001C0000000000000001 /* AdMobManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000200000000000000001 /* AdMobManager.swift */; };
 		A100001D0000000000000001 /* AdBannerCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000210000000000000001 /* AdBannerCardView.swift */; };
+		A100001E0000000000000001 /* PurchaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000220000000000000001 /* PurchaseManager.swift */; };
 		A10000170000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000170000000000000001 /* Assets.xcassets */; };
 		A10000180000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F10000180000000000000001 /* PrivacyInfo.xcprivacy */; };
 		A10000190000000000000001 /* HealthNoteWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = P10000020000000000000001 /* HealthNoteWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -100,6 +101,7 @@
 		F100001F0000000000000001 /* FoodDictionaryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Views/Meals/FoodDictionaryPickerView.swift; sourceTree = "<group>"; };
 		F10000200000000000000001 /* AdMobManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Services/AdMobManager.swift; sourceTree = "<group>"; };
 		F10000210000000000000001 /* AdBannerCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/DesignSystem/Components/AdBannerCardView.swift; sourceTree = "<group>"; };
+		F10000220000000000000001 /* PurchaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthNote/Services/PurchaseManager.swift; sourceTree = "<group>"; };
 		P10000010000000000000001 /* HealthNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		P10000020000000000000001 /* HealthNoteWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HealthNoteWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -159,6 +161,7 @@
 				F100001F0000000000000001 /* FoodDictionaryPickerView.swift */,
 				F10000200000000000000001 /* AdMobManager.swift */,
 				F10000210000000000000001 /* AdBannerCardView.swift */,
+				F10000220000000000000001 /* PurchaseManager.swift */,
 				F10000190000000000000001 /* HealthNoteWidget.swift */,
 				F10000170000000000000001 /* Assets.xcassets */,
 				F10000180000000000000001 /* PrivacyInfo.xcprivacy */,
@@ -307,6 +310,7 @@
 				A100001B0000000000000001 /* FoodDictionaryPickerView.swift in Sources */,
 				A100001C0000000000000001 /* AdMobManager.swift in Sources */,
 				A100001D0000000000000001 /* AdBannerCardView.swift in Sources */,
+				A100001E0000000000000001 /* PurchaseManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

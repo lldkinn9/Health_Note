@@ -79,6 +79,9 @@ public struct AdvisorView: View {
 
                 // 4. チャット入力エリア
                 inputBar
+
+                // 5. 下部常時固定バナー広告（案C）
+                AdBottomBannerBar()
             }
             .background(Color(.systemGroupedBackground).ignoresSafeArea(edges: .bottom))
             .navigationTitle("AIアドバイザー")

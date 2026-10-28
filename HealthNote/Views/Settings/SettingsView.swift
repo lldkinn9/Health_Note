@@ -22,12 +22,97 @@ public struct SettingsView: View {
     // 規約・免責シート
     @State private var showingPrivacySheet: Bool = false
     @State private var showingMedicalDisclaimerSheet: Bool = false
+    @State private var showingProUpgradeSheet: Bool = false
+
+    @ObservedObject private var purchaseManager = PurchaseManager.shared
 
     public init() {}
 
     public var body: some View {
         NavigationStack {
             Form {
+                // 0. Proプラン（500円買い切り・広告完全非表示）
+                Section(
+                    header: Text("プラン・広告設定"),
+                    footer: Text("Proプランは500円（税込）の1回買い切りです。月額課金は一切発生せず、購入後はすべての画面の下部バナー広告が永久に非表示になります。")
+                ) {
+                    HStack {
+                        Label(
+                            purchaseManager.isProUnlocked ? "My Trainer Pro（広告非表示）" : "現在のプラン：無料プラン",
+                            systemImage: purchaseManager.isProUnlocked ? "crown.fill" : "sparkles"
+                        )
+                        .foregroundColor(purchaseManager.isProUnlocked ? AppTheme.emerald : .primary)
+                        .font(.system(size: 14, weight: .bold))
+
+                        Spacer()
+
+                        if purchaseManager.isProUnlocked {
+                            Text("適用中")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(AppTheme.emerald)
+                                .clipShape(Capsule())
+                        }
+                    }
+
+                    if !purchaseManager.isProUnlocked {
+                        Button(action: {
+                            showingProUpgradeSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "crown.fill")
+                                    .foregroundColor(.yellow)
+                                Text("Proプランへアップグレード（\(purchaseManager.displayPrice) 買い切り）")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .background(AppTheme.actionGradient)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+
+                        Button(action: {
+                            Task { await purchaseManager.restorePurchases() }
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                Text("購入を復元する（機種変更・再インストール時）")
+                                    .font(.system(size: 13))
+                            }
+                            .foregroundColor(AppTheme.emerald)
+                        }
+                        .disabled(purchaseManager.isLoading)
+                    } else {
+                        #if DEBUG
+                        Button(role: .destructive, action: {
+                            purchaseManager.debugResetProStatus()
+                        }) {
+                            Text("【デバッグ用】無料プラン（広告あり）の表示に戻す")
+                                .font(.system(size: 12))
+                        }
+                        #endif
+                    }
+
+                    if let status = purchaseManager.statusMessage {
+                        Text(status)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(AppTheme.emerald)
+                    }
+                    if let error = purchaseManager.errorMessage {
+                        Text(error)
+                            .font(.system(size: 11))
+                            .foregroundColor(.red)
+                    }
+                }
+
                 // 1. Google Gemini AI設定 (任意・上級者向けオプショナル機能)
                 Section(header: Text("AI拡張機能設定（任意オプション）"), footer: aiFooterView) {
                     HStack {
@@ -162,6 +247,12 @@ public struct SettingsView: View {
             }
             .sheet(isPresented: $showingPrivacySheet) {
                 privacyPolicyView
+            }
+            .sheet(isPresented: $showingProUpgradeSheet) {
+                ProUpgradeSheetView()
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                AdBottomBannerBar()
             }
         }
     }

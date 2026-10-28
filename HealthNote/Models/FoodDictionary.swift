@@ -162,3 +162,4 @@ public enum FoodDictionaryCatalog {
         FoodDictionaryItem(id: "black_coffee", name: "ブラックコーヒー・緑茶", unitDescription: "1杯", category: .drink, calories: 4, protein: 0.2, fat: 0.0, carbs: 0.7, keywords: "お茶 飲み物")
     ]
 }
+
