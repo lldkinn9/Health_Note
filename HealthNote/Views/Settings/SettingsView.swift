@@ -37,7 +37,7 @@ public struct SettingsView: View {
                 ) {
                     HStack {
                         Label(
-                            purchaseManager.isProUnlocked ? "My Trainer Pro（広告非表示）" : "現在のプラン：無料プラン",
+                            purchaseManager.isProUnlocked ? "Health Note Pro（広告非表示）" : "現在のプラン：無料プラン",
                             systemImage: purchaseManager.isProUnlocked ? "crown.fill" : "sparkles"
                         )
                         .foregroundColor(purchaseManager.isProUnlocked ? AppTheme.emerald : .primary)
@@ -395,7 +395,7 @@ public struct SettingsView: View {
                     Apple HealthKitから取得したバイタル情報は、アプリ内のダッシュボード表示にのみ使用され、外部への提供や広告等の目的で利用されることは一切ありません。
 
                     5. 広告配信（Google AdMob）について:
-                    本アプリを完全無料で提供し続けるため、一部の画面（サマリ・食事ログ下部）にGoogle AdMobによるバナー広告を表示します。広告配信にあたり、iOSのApp Tracking Transparency（ATT）フレームワークに基づきお客様の許可を得た場合にのみ広告識別子（IDFA）が利用されます（HealthKitデータや食事・カルテの個人記録が広告ターゲティングに使われることは一切ありません）。
+                    本アプリを無料で提供し続けるため、画面下部にGoogle AdMobによるバナー広告を表示します（Proプランへのアップグレードにより完全非表示化が可能）。広告配信にあたり、iOSのApp Tracking Transparency（ATT）フレームワークに基づきお客様の許可を得た場合にのみ広告識別子（IDFA）が利用されます（HealthKitデータや食事・カルテの個人記録が広告ターゲティングに使われることは一切ありません）。
                     """)
                     .font(.system(size: 13))
                     .lineSpacing(5)

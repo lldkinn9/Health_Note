@@ -98,6 +98,11 @@ public struct HealthProfileView: View {
                     loadInitialData()
                 }
             }
+            .onChange(of: profiles.first?.id) { _, _ in
+                if !hasChanges {
+                    loadInitialData()
+                }
+            }
         }
     }
 
@@ -481,14 +486,44 @@ public struct HealthProfileView: View {
     }
 
     // MARK: - Data Management & Change Tracking
+    /// 現在の入力値が保存済みのプロフィール（または初期値）から実際に変更されているかを厳密に判定
+    private var hasActualChanges: Bool {
+        guard isLoaded else { return false }
+        guard let p = activeProfile else {
+            return !nickname.isEmpty && nickname != "あなた"
+        }
+        return nickname != p.nickname
+            || genderRaw != p.genderRaw
+            || abs(heightCm - p.heightCm) > 0.01
+            || abs(weightKg - p.weightKg) > 0.01
+            || abs(targetWeightKg - p.targetWeightKg) > 0.01
+            || activityLevel != p.activityLevel
+            || abs(targetCalories - p.targetCalories) > 0.1
+            || abs(targetProtein - p.targetProtein) > 0.1
+            || abs(targetFat - p.targetFat) > 0.1
+            || abs(targetCarbs - p.targetCarbs) > 0.1
+            || medicalHistory != p.medicalHistory
+            || allergies != p.allergies
+            || dietaryRestrictions != p.dietaryRestrictions
+            || healthCheckMemo != p.healthCheckMemo
+    }
+
     private func markChanged() {
         guard isLoaded else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-            hasChanges = true
+        let changed = hasActualChanges
+        if hasChanges != changed {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                hasChanges = changed
+            }
         }
     }
 
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
     private func loadInitialData() {
+        isLoaded = false
         if let p = activeProfile {
             nickname = p.nickname
             genderRaw = p.genderRaw
@@ -509,9 +544,11 @@ public struct HealthProfileView: View {
                 hasBirthDate = true
             }
         }
-        isLoaded = true
-        withAnimation {
-            hasChanges = false
+        hasChanges = false
+        dismissKeyboard()
+        DispatchQueue.main.async {
+            self.isLoaded = true
+            self.hasChanges = false
         }
     }
 
@@ -539,6 +576,7 @@ public struct HealthProfileView: View {
         }
 
         try? modelContext.save()
+        dismissKeyboard()
 
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             hasChanges = false
