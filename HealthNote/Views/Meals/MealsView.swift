@@ -376,7 +376,7 @@ public struct MealsView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                     } else {
-                        Text("【任意オプション】\n食事を記録するとPFCバランスとカロリーが集計されます。\nGemini APIキーをお持ちの方は「設定」で登録すると、AIによる総合栄養講評も受けられます。")
+                        Text("本機能はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)

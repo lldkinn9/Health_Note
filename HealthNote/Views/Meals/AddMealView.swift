@@ -135,7 +135,7 @@ public struct AddMealView: View {
                             .background(Color.indigo.opacity(0.08))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         } else if selectedImageData != nil && GeminiService.shared.getApiKey() == nil {
-                            Text("※APIキーをお持ちの方は「設定」で登録すると、写真からカロリーやPFCを自動解析できます。未登録のままでも下部で手動入力して記録可能です。")
+                            Text("※本機能（写真からの自動解析）はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。未設定のままでも下部から手動または食品辞書で記録できます。")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }

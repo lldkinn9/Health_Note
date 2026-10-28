@@ -11,7 +11,6 @@ public struct SettingsView: View {
     @Query private var allAdvices: [DailyAdvice]
 
     @State private var apiKeyInput: String = ""
-    @State private var modelInput: String = ""
     @State private var isKeySecure: Bool = true
     @State private var saveSuccessAlert: Bool = false
 
@@ -128,14 +127,6 @@ public struct SettingsView: View {
                         }
                     }
 
-                    HStack {
-                        Text("使用モデル")
-                        Spacer()
-                        TextField("gemini-flash-lite", text: $modelInput)
-                            .multilineTextAlignment(.trailing)
-                            .foregroundColor(.secondary)
-                    }
-
                     Button(action: { saveAiSettings() }) {
                         HStack {
                             Spacer()
@@ -211,12 +202,6 @@ public struct SettingsView: View {
                         Text("1.0.0 (Build 1)")
                             .foregroundColor(.secondary)
                     }
-                    HStack {
-                        Text("同期方式")
-                        Spacer()
-                        Text("Apple CloudKit (開発者負担0円)")
-                            .foregroundColor(.secondary)
-                    }
                 }
             }
             .navigationTitle("設定")
@@ -270,16 +255,11 @@ public struct SettingsView: View {
     // MARK: - AI設定のロード＆セーブ
     private func loadAiSettings() {
         apiKeyInput = KeychainManager.shared.load(key: KeychainManager.geminiApiKeyIdentifier) ?? ""
-        modelInput = KeychainManager.shared.load(key: KeychainManager.geminiModelIdentifier) ?? "gemini-flash-lite"
     }
 
     private func saveAiSettings() {
         let cleanKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanModel = modelInput.trimmingCharacters(in: .whitespacesAndNewlines)
-
         KeychainManager.shared.save(key: KeychainManager.geminiApiKeyIdentifier, value: cleanKey)
-        KeychainManager.shared.save(key: KeychainManager.geminiModelIdentifier, value: cleanModel.isEmpty ? "gemini-flash-lite" : cleanModel)
-
         saveSuccessAlert = true
     }
 
@@ -297,7 +277,6 @@ public struct SettingsView: View {
         KeychainManager.shared.delete(key: KeychainManager.geminiApiKeyIdentifier)
         KeychainManager.shared.delete(key: KeychainManager.geminiModelIdentifier)
         apiKeyInput = ""
-        modelInput = "gemini-flash-lite"
 
         // 初期プロファイルの再投入
         ModelContainerFactory.ensureInitialData(context: modelContext)

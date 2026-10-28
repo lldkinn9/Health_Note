@@ -107,10 +107,11 @@ public struct AdvisorView: View {
             Image(systemName: "exclamationmark.shield.fill")
                 .foregroundColor(.orange)
                 .font(.system(size: 12))
+                .padding(.top, 1)
             Text("【医師法・薬機法に基づく免責】AIアドバイザーは医師・医療機関ではありません。病気の診断・治療や医薬品的な効能効果の助言は行わず、日々の食習慣改善の参考情報をお届けします。")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -189,7 +190,7 @@ public struct AdvisorView: View {
                         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
 
                     if message.isError {
-                        Text("エラーが発生しました。設定画面でAPIキーを確認してください。")
+                        Text("通信状況または設定をご確認ください。")
                             .font(.system(size: 11))
                             .foregroundColor(.red)
                     }
@@ -283,6 +284,17 @@ public struct AdvisorView: View {
                 await MainActor.run {
                     let aiMsg = AdvisorChatMessage(role: .assistant, content: reply)
                     modelContext.insert(aiMsg)
+                    try? modelContext.save()
+                    isSending = false
+                }
+            } catch GeminiError.missingApiKey {
+                await MainActor.run {
+                    let infoMsg = AdvisorChatMessage(
+                        role: .assistant,
+                        content: "本機能はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。",
+                        isError: false
+                    )
+                    modelContext.insert(infoMsg)
                     try? modelContext.save()
                     isSending = false
                 }

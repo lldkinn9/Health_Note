@@ -11,7 +11,7 @@ public enum GeminiError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .missingApiKey:
-            return "Google Gemini APIキーが設定されていません。「設定」画面からAPIキーを登録してください。"
+            return "本機能はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。"
         case .invalidResponse:
             return "Gemini APIからの応答が不正です。通信状態を確認してください。"
         case .apiError(let code, let message):
