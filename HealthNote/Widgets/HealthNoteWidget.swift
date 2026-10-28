@@ -88,7 +88,7 @@ public struct HealthNoteWidgetEntryView: View {
             HStack(spacing: 4) {
                 Text("🔥")
                     .font(.system(size: 13))
-                Text("My Trainer")
+                Text("Health Note")
                     .font(.system(size: 12, weight: .black, design: .rounded))
                     .foregroundColor(.white)
             }
@@ -234,7 +234,7 @@ public struct HealthNoteWidget: Widget {
         StaticConfiguration(kind: kind, provider: HealthNoteTimelineProvider()) { entry in
             HealthNoteWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("My Trainer サマリ")
+        .configurationDisplayName("Health Note サマリ")
         .description("本日のカロリー・PFCバランスと経過時間をリアルタイム確認。")
         .supportedFamilies([.systemMedium])
     }

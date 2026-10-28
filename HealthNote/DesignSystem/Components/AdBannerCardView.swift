@@ -115,7 +115,7 @@ public struct ProUpgradeSheetView: View {
                     .padding(.top, 16)
 
                     VStack(spacing: 6) {
-                        Text("My Trainer Pro")
+                        Text("Health Note Pro")
                             .font(.system(size: 24, weight: .black, design: .rounded))
 
                         Text("500円（税込）買い切り・月額料金なし")
