@@ -16,9 +16,10 @@ public struct AddMealView: View {
     @State private var memo: String = ""
     @State private var timestamp: Date = Date()
 
-    // 写真選択・解析
+    // 写真選択・カメラ撮影・解析
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var selectedImageData: Data? = nil
+    @State private var showingCamera: Bool = false
     @State private var isAnalyzing: Bool = false
     @State private var analysisAdvice: String? = nil
     @State private var errorMessage: String? = nil
@@ -95,32 +96,51 @@ public struct AddMealView: View {
                             }
                         }
 
-                        HStack {
-                            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                                Label(selectedImageData == nil ? "食事の写真を選択" : "写真を変更", systemImage: "camera.fill")
-                                    .font(.system(size: 14, weight: .bold))
+                        HStack(spacing: 10) {
+                            // カメラでその場で撮影ボタン
+                            Button(action: {
+                                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                                    showingCamera = true
+                                } else {
+                                    errorMessage = "この端末（シミュレーター等）ではカメラが利用できません。「アルバムから選択」をご利用ください。"
+                                }
+                            }) {
+                                Label("カメラで撮影", systemImage: "camera.fill")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(AppTheme.emerald)
 
-                            Spacer()
+                            // 写真ライブラリから選択ボタン
+                            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                                Label("アルバムから選択", systemImage: "photo.on.rectangle")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(AppTheme.emerald)
+                        }
 
-                            if selectedImageData != nil && GeminiService.shared.getApiKey() != nil {
-                                Button(action: {
-                                    analyzeSelectedImage()
-                                }) {
+                        if selectedImageData != nil && GeminiService.shared.getApiKey() != nil {
+                            Button(action: {
+                                analyzeSelectedImage()
+                            }) {
+                                HStack {
+                                    Spacer()
                                     if isAnalyzing {
                                         ProgressView()
                                             .tint(.white)
                                     } else {
-                                        Label("AI自動解析", systemImage: "sparkles")
+                                        Label("写真をAI自動解析する", systemImage: "sparkles")
                                             .font(.system(size: 14, weight: .bold))
                                     }
+                                    Spacer()
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.indigo)
-                                .disabled(isAnalyzing)
                             }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.indigo)
+                            .disabled(isAnalyzing)
                         }
 
                         if let analysisAdvice {
@@ -257,6 +277,17 @@ public struct AddMealView: View {
                     self.carbs = selectedC
                 }
             }
+            .fullScreenCover(isPresented: $showingCamera) {
+                CameraImagePicker { capturedImage in
+                    if let data = capturedImage.jpegData(compressionQuality: 0.85) {
+                        self.selectedImageData = data
+                        if GeminiService.shared.getApiKey() != nil {
+                            analyzeSelectedImage()
+                        }
+                    }
+                }
+                .ignoresSafeArea()
+            }
             .alert("エラー", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
@@ -349,5 +380,48 @@ public struct AddMealView: View {
             carbs: c,
             lastMealDate: todayList.last?.timestamp
         )
+    }
+}
+
+// MARK: - カメラ直接撮影用 UIImagePickerController ラッパー
+private struct CameraImagePicker: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
+    let onImageCaptured: (UIImage) -> Void
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.cameraCaptureMode = .photo
+        picker.allowsEditing = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: CameraImagePicker
+
+        init(parent: CameraImagePicker) {
+            self.parent = parent
+        }
+
+        func imagePickerController(
+            _ picker: UIImagePickerController,
+            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+        ) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.onImageCaptured(image)
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
     }
 }

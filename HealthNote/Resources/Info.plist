@@ -31,9 +31,9 @@
 
     <!-- カメラ・写真ライブラリ 権限説明 -->
     <key>NSCameraUsageDescription</key>
-    <string>食事の写真を撮影して、Gemini AIで栄養素やカロリーを自動解析するためにカメラを使用します。</string>
+    <string>食事の写真を撮影して食事ログに記録したり、AIで栄養素やカロリーを解析するためにカメラを使用します。</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>保存された食事の写真を選択して、Gemini AIで栄養素やカロリーを自動解析するために写真ライブラリを使用します。</string>
+    <string>保存された食事の写真を選択して食事ログに記録したり、AIで栄養素やカロリーを解析するために写真ライブラリを使用します。</string>
 
     <!-- ATT (App Tracking Transparency) 広告トラッキング許可説明 -->
     <key>NSUserTrackingUsageDescription</key>
