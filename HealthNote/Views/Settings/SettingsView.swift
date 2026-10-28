@@ -13,6 +13,8 @@ public struct SettingsView: View {
     @State private var apiKeyInput: String = ""
     @State private var isKeySecure: Bool = true
     @State private var saveSuccessAlert: Bool = false
+    @State private var isTestingDiagnostic: Bool = false
+    @State private var diagnosticResult: GeminiDiagnosticResult? = nil
 
     // 全データ初期化の確認アラート
     @State private var showingResetConfirmationAlert: Bool = false
@@ -136,6 +138,46 @@ public struct SettingsView: View {
                             Spacer()
                         }
                     }
+
+                    if !apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button(action: { runModelDiagnostic() }) {
+                            HStack(spacing: 6) {
+                                Spacer()
+                                if isTestingDiagnostic {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("models.list 疎通診断中...")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Image(systemName: "checkmark.shield")
+                                    Text("疎通テスト・利用可能モデル診断")
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                                Spacer()
+                            }
+                            .foregroundColor(.indigo)
+                        }
+                        .disabled(isTestingDiagnostic)
+                    }
+
+                    if let diag = diagnosticResult {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: diag.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                    .foregroundColor(diag.isSuccess ? AppTheme.emerald : .red)
+                                Text(diag.message)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(diag.isSuccess ? AppTheme.emerald : .red)
+                            }
+                            if diag.isSuccess {
+                                Text("疎通確認モデル: \(diag.activeModel)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
                 }
 
                 // 2. Apple HealthKit 連携状態
@@ -258,9 +300,27 @@ public struct SettingsView: View {
     }
 
     private func saveAiSettings() {
-        let cleanKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanKey = GeminiService.shared.sanitizeApiKey(apiKeyInput)
+        apiKeyInput = cleanKey
         KeychainManager.shared.save(key: KeychainManager.geminiApiKeyIdentifier, value: cleanKey)
+        diagnosticResult = nil
         saveSuccessAlert = true
+    }
+
+    private func runModelDiagnostic() {
+        let cleanKey = GeminiService.shared.sanitizeApiKey(apiKeyInput)
+        apiKeyInput = cleanKey
+        KeychainManager.shared.save(key: KeychainManager.geminiApiKeyIdentifier, value: cleanKey)
+        isTestingDiagnostic = true
+        diagnosticResult = nil
+
+        Task {
+            let result = await GeminiService.shared.diagnoseModels(overrideApiKey: cleanKey)
+            await MainActor.run {
+                self.diagnosticResult = result
+                self.isTestingDiagnostic = false
+            }
+        }
     }
 
     // MARK: - 全データ初期化（退会・アカウント削除相当）

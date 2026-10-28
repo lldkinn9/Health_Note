@@ -5,6 +5,7 @@ public enum GeminiError: LocalizedError {
     case missingApiKey
     case invalidResponse
     case apiError(statusCode: Int, message: String)
+    case allModelsFailed(lastError: String)
     case parsingFailed
     case emptyResult
 
@@ -16,6 +17,8 @@ public enum GeminiError: LocalizedError {
             return "Gemini APIからの応答が不正です。通信状態を確認してください。"
         case .apiError(let code, let message):
             return "Gemini APIエラー (\(code)): \(message)"
+        case .allModelsFailed(let lastError):
+            return "すべての利用可能モデルでリクエストが失敗しました。しばらく待ってから再試行してください。（詳細: \(lastError)）"
         case .parsingFailed:
             return "解析結果のパースに失敗しました。"
         case .emptyResult:
@@ -24,7 +27,7 @@ public enum GeminiError: LocalizedError {
     }
 }
 
-// MARK: - Analysis Result DTOs
+// MARK: - Analysis & Diagnostic Result DTOs
 public struct MealAnalysisResult: Codable {
     public let name: String
     public let calories: Double
@@ -57,47 +60,302 @@ public struct DailyEvaluationResult: Codable {
     }
 }
 
-/// Google Gemini API連携サービス（BYOK方式、特定バージョン非固定・最新エイリアス動的解決）
+/// モデル診断・疎通テスト結果
+public struct GeminiDiagnosticResult {
+    public let isSuccess: Bool
+    public let activeModel: String
+    public let availableModels: [String]
+    public let message: String
+}
+
+/// Google Gemini API連携サービス
+/// - 特定世代モデルのハードコード禁止・環境変数＆最新公式エイリアス動的解決
+/// - メイン ➔ サブ ➔ models.list 動的選定による多重自動フェールオーバー（404 / 429 / 500 / 503 自動切替）
+/// - AQ... 形式を含む最新APIキー仕様の安全なサニタイズ＆ヘッダー送信対応
 public final class GeminiService {
     public static let shared = GeminiService()
 
+    /// models.list から動的に取得した有効モデルのキャッシュ
+    private var cachedDynamicModels: [String] = []
+    /// 直近で 200 OK 疎通に成功した優先モデルキャッシュ
+    private var lastVerifiedModel: String? = nil
+
     private init() {}
 
-    /// モデル名の動的解決（環境変数 > ユーザー設定 > 最新エイリアス "gemini-flash"）
-    public func resolveModel() -> String {
-        // 1. 環境変数からの取得
-        if let envModel = ProcessInfo.processInfo.environment["GEMINI_MODEL"], !envModel.isEmpty {
-            return envModel
+    // MARK: - 1. モデル選定 ＆ 環境変数による動的解決
+
+    /// メインモデル（環境変数 GEMINI_MODEL || Google公式最新自動アップデートエイリアス）
+    public func resolveMainModel() -> String {
+        if let envModel = ProcessInfo.processInfo.environment["GEMINI_MODEL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !envModel.isEmpty {
+            return sanitizeModelName(envModel)
         }
-        // 2. ユーザー設定（Keychain）からの取得
-        if let userModel = KeychainManager.shared.load(key: KeychainManager.geminiModelIdentifier), !userModel.isEmpty {
-            return userModel
-        }
-        // 3. Google 公式最新エイリアス / ライトモデル（特定バージョン番号をハードコードしない）
-        return "gemini-flash-lite"
+        return "gemini-flash-lite-latest"
     }
 
-    /// 現在設定されているAPIキーを取得（Keychainから解決）
+    /// サブバックアップモデル（環境変数 GEMINI_BACKUP_MODEL || Google公式最新Flashエイリアス）
+    public func resolveBackupModel() -> String {
+        if let envBackup = ProcessInfo.processInfo.environment["GEMINI_BACKUP_MODEL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !envBackup.isEmpty {
+            return sanitizeModelName(envBackup)
+        }
+        return "gemini-flash-latest"
+    }
+
+    /// 優先モデル候補チェーンを構築（メイン ➔ サブ ➔ キャッシュ済み動的モデル）
+    public func buildInitialCandidateChain() -> [String] {
+        var chain: [String] = []
+        if let verified = lastVerifiedModel {
+            chain.append(verified)
+        }
+        let main = resolveMainModel()
+        if !chain.contains(main) { chain.append(main) }
+
+        let backup = resolveBackupModel()
+        if !chain.contains(backup) { chain.append(backup) }
+
+        for dynamicModel in cachedDynamicModels {
+            if !chain.contains(dynamicModel) {
+                chain.append(dynamicModel)
+            }
+        }
+        return chain
+    }
+
+    private func sanitizeModelName(_ raw: String) -> String {
+        var clean = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.hasPrefix("models/") {
+            clean = String(clean.dropFirst("models/".count))
+        }
+        return clean
+    }
+
+    // MARK: - 2. 最新 API キー仕様 (AQ... / AIza... 形式) の安全な取得・サニタイズ
+
+    /// KeychainからAPIキーを取得し、空白・改行・引用符・制御文字を安全に除去して返す
     public func getApiKey() -> String? {
-        if let key = KeychainManager.shared.load(key: KeychainManager.geminiApiKeyIdentifier), !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let rawKey = KeychainManager.shared.load(key: KeychainManager.geminiApiKeyIdentifier) else {
+            return nil
         }
-        return nil
+        let sanitized = sanitizeApiKey(rawKey)
+        return sanitized.isEmpty ? nil : sanitized
     }
 
-    // MARK: - 1. 食事写真のマルチモーダル解析
+    /// AQ... 形式やコピペ時の不可視文字・クォートを含むキー文字列を安全に正規化
+    public func sanitizeApiKey(_ rawKey: String) -> String {
+        var clean = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        clean = clean.trimmingCharacters(in: CharacterSet(charactersIn: "\"'`"))
+        // 制御文字やゼロ幅スペース等を除去し、印字可能ASCII文字のみ保持
+        clean = clean.unicodeScalars.filter { scalar in
+            scalar.isASCII && scalar.value >= 0x21 && scalar.value <= 0x7E
+        }.map { String($0) }.joined()
+        return clean
+    }
+
+    // MARK: - 3. 利用可能モデル一覧の動的チェック (models.list エンドポイント)
+
+    /// `https://generativelanguage.googleapis.com/v1beta/models` から現在そのAPIキーで `generateContent` 可能なモデル一覧を動的取得
+    public func fetchAvailableModels(apiKey: String? = nil) async throws -> [String] {
+        guard let key = (apiKey != nil ? sanitizeApiKey(apiKey!) : getApiKey()), !key.isEmpty else {
+            throw GeminiError.missingApiKey
+        }
+
+        var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models")
+        components?.queryItems = [URLQueryItem(name: "key", value: key)]
+        guard let url = components?.url else {
+            throw GeminiError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+        request.timeoutInterval = 15
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw GeminiError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorMsg = extractApiErrorMessage(from: data, statusCode: httpResponse.statusCode)
+            throw GeminiError.apiError(statusCode: httpResponse.statusCode, message: errorMsg)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]] else {
+            throw GeminiError.parsingFailed
+        }
+
+        var validModels: [String] = []
+        for modelDict in models {
+            guard let rawName = modelDict["name"] as? String else { continue }
+            let methods = modelDict["supportedGenerationMethods"] as? [String] ?? []
+            guard methods.contains("generateContent") else { continue }
+
+            let name = sanitizeModelName(rawName)
+            let lower = name.lowercased()
+
+            // テキスト/マルチモーダル生成に適さない特殊用途モデル（embedding, imagen, veo, tts, audio, aqa, bisheng等）を除外
+            let excludedKeywords = ["embedding", "imagen", "veo", "aqa", "tts", "audio", "learnlm", "robotics", "thinking"]
+            if excludedKeywords.contains(where: { lower.contains($0) }) {
+                continue
+            }
+            if lower.hasPrefix("gemini-") {
+                validModels.append(name)
+            }
+        }
+
+        // 優先度ソート: flash-lite系 ➔ flash系 ➔ pro系 の順で優先配置
+        let sorted = validModels.sorted { a, b in
+            let scoreA = Self.modelPriorityScore(a)
+            let scoreB = Self.modelPriorityScore(b)
+            if scoreA != scoreB { return scoreA < scoreB }
+            return a > b
+        }
+
+        if !sorted.isEmpty {
+            self.cachedDynamicModels = sorted
+        }
+        return sorted
+    }
+
+    private static func modelPriorityScore(_ name: String) -> Int {
+        let lower = name.lowercased()
+        if lower.contains("flash-lite-latest") { return 0 }
+        if lower.contains("flash-lite") { return 1 }
+        if lower.contains("flash-latest") { return 2 }
+        if lower.contains("flash") { return 3 }
+        if lower.contains("pro-latest") { return 4 }
+        if lower.contains("pro") { return 5 }
+        return 6
+    }
+
+    /// 設定画面用：APIキーの疎通テスト＆利用可能モデル診断
+    public func diagnoseModels(overrideApiKey: String? = nil) async -> GeminiDiagnosticResult {
+        let resolvedKey: String?
+        if let override = overrideApiKey, !sanitizeApiKey(override).isEmpty {
+            resolvedKey = sanitizeApiKey(override)
+        } else {
+            resolvedKey = getApiKey()
+        }
+
+        guard let apiKey = resolvedKey else {
+            return GeminiDiagnosticResult(
+                isSuccess: false,
+                activeModel: "-",
+                availableModels: [],
+                message: "本機能はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。"
+            )
+        }
+
+        do {
+            // 1. models.list エンドポイントから利用可能モデル一覧を動的取得
+            let available = try await fetchAvailableModels(apiKey: apiKey)
+
+            // 2. 多重フェールオーバーチェーンで実疎通（200 OK）を確認
+            let testBody: [String: Any] = [
+                "contents": [
+                    ["parts": [["text": "Respond with OK"]]]
+                ],
+                "generationConfig": [
+                    "maxOutputTokens": 8
+                ]
+            ]
+
+            let (_, activeModel) = try await executeWithFailover(apiKey: apiKey, requestBody: testBody)
+
+            return GeminiDiagnosticResult(
+                isSuccess: true,
+                activeModel: activeModel,
+                availableModels: available,
+                message: "疎通成功 (200 OK)・有効モデル \(available.count) 件を確認しました。"
+            )
+        } catch {
+            return GeminiDiagnosticResult(
+                isSuccess: false,
+                activeModel: "-",
+                availableModels: [],
+                message: "疎通テストに失敗しました: \(error.localizedDescription)"
+            )
+        }
+    }
+
+    // MARK: - 4. 多重モデル自動フォールバック（フェールオーバー）実行エンジン
+
+    /// 優先モデルチェーン（メイン ➔ サブ ➔ models.list動的選定）を順番に試行し、
+    /// HTTP 404 / 429 (RESOURCE_EXHAUSTED) / 500 / 503 発生時は裏で自動的に次モデルへ切り替えて成功結果を返す
+    private func executeWithFailover(
+        apiKey: String,
+        requestBody: [String: Any]
+    ) async throws -> (Data, String) {
+        var candidates = buildInitialCandidateChain()
+        var triedModels = Set<String>()
+        var didFetchDynamicList = false
+        var lastErrorDescription = "不明なエラー"
+
+        var index = 0
+        while index < candidates.count {
+            let model = candidates[index]
+            index += 1
+
+            if triedModels.contains(model) { continue }
+            triedModels.insert(model)
+
+            do {
+                let responseData = try await sendGenerateContentRequest(
+                    model: model,
+                    apiKey: apiKey,
+                    body: requestBody
+                )
+                // 成功したモデルをキャッシュ
+                self.lastVerifiedModel = model
+                return (responseData, model)
+            } catch let GeminiError.apiError(statusCode, message) {
+                lastErrorDescription = "[\(model)] HTTP \(statusCode): \(message)"
+
+                // フェールオーバー対象エラーの判定（404: 廃止/未存在, 429: クォータ上限, 500/503: サーバー過負荷, 400: 対象モデル非対応）
+                let shouldFailover = (statusCode == 404)
+                    || (statusCode == 429)
+                    || (statusCode == 500)
+                    || (statusCode == 503)
+                    || message.uppercased().contains("RESOURCE_EXHAUSTED")
+                    || message.uppercased().contains("NOT_FOUND")
+                    || message.uppercased().contains("UNAVAILABLE")
+
+                if shouldFailover {
+                    if self.lastVerifiedModel == model {
+                        self.lastVerifiedModel = nil
+                    }
+                    // まだ models.list を動的取得していない場合は、予備モデル一覧を即時取得してチェーン末尾に追加
+                    if !didFetchDynamicList {
+                        didFetchDynamicList = true
+                        if let dynamicList = try? await fetchAvailableModels(apiKey: apiKey) {
+                            for dynModel in dynamicList where !triedModels.contains(dynModel) && !candidates.contains(dynModel) {
+                                candidates.append(dynModel)
+                            }
+                        }
+                    }
+                    // エラーを呼び出し側に返さず、即座に次のモデルへ自動フォールバック
+                    continue
+                } else {
+                    // 認証エラー（401 / 403 API_KEY_INVALID 等）はモデルを変えても失敗するため即座に通知
+                    throw GeminiError.apiError(statusCode: statusCode, message: message)
+                }
+            } catch {
+                lastErrorDescription = error.localizedDescription
+                continue
+            }
+        }
+
+        throw GeminiError.allModelsFailed(lastError: lastErrorDescription)
+    }
+
+    // MARK: - 5. 食事写真のマルチモーダル解析
     public func analyzeMealPhoto(imageData: Data) async throws -> MealAnalysisResult {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
         }
 
-        let model = resolveModel()
-        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
-        guard let url = URL(string: urlString) else {
-            throw GeminiError.invalidResponse
-        }
-
-        // 画像リサイズ圧縮（最大1024pxに縮小して転送量を最適化）
         let optimizedData = optimizeImageData(imageData)
         let base64String = optimizedData.base64EncodedString()
 
@@ -140,7 +398,7 @@ public final class GeminiService {
             ]
         ]
 
-        let responseData = try await sendRequest(url: url, body: requestBody)
+        let (responseData, _) = try await executeWithFailover(apiKey: apiKey, requestBody: requestBody)
         let jsonText = try extractText(from: responseData)
 
         guard let cleanData = cleanJsonString(jsonText).data(using: .utf8) else {
@@ -150,7 +408,7 @@ public final class GeminiService {
         return try JSONDecoder().decode(MealAnalysisResult.self, from: cleanData)
     }
 
-    // MARK: - 2. AIアドバイザーチャット
+    // MARK: - 6. AIアドバイザーチャット
     public func chatWithAdvisor(
         messages: [AdvisorChatMessage],
         profile: HealthProfile?,
@@ -160,13 +418,6 @@ public final class GeminiService {
             throw GeminiError.missingApiKey
         }
 
-        let model = resolveModel()
-        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
-        guard let url = URL(string: urlString) else {
-            throw GeminiError.invalidResponse
-        }
-
-        // プロンプト構築（医師法・薬機法・App Store医療免責を厳格に指示）
         var systemInstruction = """
         あなたはユーザー専属の親切でポジティブなパーソナルヘルスケア・栄養生活アドバイザーです。
 
@@ -195,8 +446,6 @@ public final class GeminiService {
         }
 
         var contents: [[String: Any]] = []
-
-        // 過去のチャット履歴（直近10件）
         let recentMessages = messages.suffix(10)
         for msg in recentMessages {
             let role = msg.isUser ? "user" : "model"
@@ -216,20 +465,14 @@ public final class GeminiService {
             ]
         ]
 
-        let responseData = try await sendRequest(url: url, body: requestBody)
+        let (responseData, _) = try await executeWithFailover(apiKey: apiKey, requestBody: requestBody)
         return try extractText(from: responseData)
     }
 
-    // MARK: - 3. 本日の食事総括・栄養バランス評価
+    // MARK: - 7. 本日の食事総括・栄養バランス評価
     public func generateDailyEvaluation(meals: [Meal], profile: HealthProfile?) async throws -> DailyEvaluationResult {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
-        }
-
-        let model = resolveModel()
-        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
-        guard let url = URL(string: urlString) else {
-            throw GeminiError.invalidResponse
         }
 
         let totalCal = meals.reduce(0) { $0 + $1.calories }
@@ -277,7 +520,7 @@ public final class GeminiService {
             ]
         ]
 
-        let responseData = try await sendRequest(url: url, body: requestBody)
+        let (responseData, _) = try await executeWithFailover(apiKey: apiKey, requestBody: requestBody)
         let jsonText = try extractText(from: responseData)
 
         guard let cleanData = cleanJsonString(jsonText).data(using: .utf8) else {
@@ -287,11 +530,30 @@ public final class GeminiService {
         return try JSONDecoder().decode(DailyEvaluationResult.self, from: cleanData)
     }
 
-    // MARK: - Private Helpers
-    private func sendRequest(url: URL, body: [String: Any]) async throws -> Data {
+    // MARK: - Private HTTP & Parsing Helpers
+    private func sendGenerateContentRequest(
+        model: String,
+        apiKey: String,
+        body: [String: Any]
+    ) async throws -> Data {
+        let cleanModel = sanitizeModelName(model)
+        guard let encodedModel = cleanModel.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw GeminiError.invalidResponse
+        }
+
+        var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models/\(encodedModel):generateContent")
+        components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
+
+        guard let url = components?.url else {
+            throw GeminiError.invalidResponse
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // AQ... 形式を含む最新APIキー仕様に確実に対応するよう HTTP ヘッダーにもセット
+        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+        request.timeoutInterval = 30
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -301,11 +563,26 @@ public final class GeminiService {
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
-            let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown HTTP \(httpResponse.statusCode)"
+            let errorMsg = extractApiErrorMessage(from: data, statusCode: httpResponse.statusCode)
             throw GeminiError.apiError(statusCode: httpResponse.statusCode, message: errorMsg)
         }
 
         return data
+    }
+
+    private func extractApiErrorMessage(from data: Data, statusCode: Int) -> String {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let err = json["error"] as? [String: Any] {
+            let status = err["status"] as? String ?? ""
+            let msg = err["message"] as? String ?? ""
+            if !status.isEmpty {
+                return "\(status) - \(msg)"
+            }
+            if !msg.isEmpty {
+                return msg
+            }
+        }
+        return String(data: data, encoding: .utf8) ?? "HTTP \(statusCode)"
     }
 
     private func extractText(from data: Data) throws -> String {
