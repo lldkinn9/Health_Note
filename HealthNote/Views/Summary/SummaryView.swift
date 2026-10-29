@@ -148,6 +148,9 @@ public struct SummaryView: View {
                     refreshData()
                 }
             }
+            .onChange(of: allMeals.count) { _, _ in
+                syncToWidget()
+            }
             .refreshable {
                 await healthKit.fetchTodayVitals()
                 syncToWidget()
@@ -553,14 +556,14 @@ public struct SummaryView: View {
     }
 
     private func syncToWidget() {
-        let lastMeal = todaysMeals.last
+        let latestMeal = allMeals.filter { $0.timestamp <= Date() }.last ?? todaysMeals.last
         WidgetDataManager.shared.updateWidgetData(
             intakeCalories: intakeCalories,
             burnedCalories: burnedCalories,
             protein: proteinGrams,
             fat: fatGrams,
             carbs: carbsGrams,
-            lastMealDate: lastMeal?.timestamp
+            lastMealDate: latestMeal?.timestamp
         )
     }
 }

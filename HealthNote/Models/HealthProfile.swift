@@ -35,7 +35,12 @@ public final class HealthProfile {
 
     // 簡易問診票・健康留意事項（AIアドバイザーの個別化に活用）
     public var medicalHistory: String = ""      // 既往歴・持病
-    public var allergies: String = ""           // アレルギー
+    public var allergies: String = ""           // 食物アレルギー
+    public var otherAllergies: String = ""      // その他アレルギー（花粉・薬物・金属等）
+    public var subjectiveSleepHours: Double? = nil // 自覚睡眠時間（手入力専用・ヘルスケア非連動）
+    public var drinkingHabit: String = "未設定" // 飲酒習慣の有無
+    public var smokingHabit: String = "未設定"  // 喫煙習慣の有無
+    public var pregnancyStatus: String = "未設定" // 妊娠中の有無
     public var dietaryRestrictions: String = "" // 食事制限・嗜好（減塩、低糖質等）
     public var healthCheckMemo: String = ""     // 直近の健診気になる項目
 
@@ -59,6 +64,11 @@ public final class HealthProfile {
         targetCarbs: Double = 250.0,
         medicalHistory: String = "",
         allergies: String = "",
+        otherAllergies: String = "",
+        subjectiveSleepHours: Double? = nil,
+        drinkingHabit: String = "未設定",
+        smokingHabit: String = "未設定",
+        pregnancyStatus: String = "未設定",
         dietaryRestrictions: String = "",
         healthCheckMemo: String = ""
     ) {
@@ -78,6 +88,11 @@ public final class HealthProfile {
         self.targetCarbs = targetCarbs
         self.medicalHistory = medicalHistory
         self.allergies = allergies
+        self.otherAllergies = otherAllergies
+        self.subjectiveSleepHours = subjectiveSleepHours
+        self.drinkingHabit = drinkingHabit
+        self.smokingHabit = smokingHabit
+        self.pregnancyStatus = pregnancyStatus
         self.dietaryRestrictions = dietaryRestrictions
         self.healthCheckMemo = healthCheckMemo
         self.updatedAt = Date()
@@ -125,8 +140,15 @@ public final class HealthProfile {
             items.append("体脂肪率: \(String(format: "%.1f", bf))%")
         }
         items.append("日常活動レベル: \(activityLevel.rawValue)")
+        if let sleep = subjectiveSleepHours, sleep > 0 {
+            items.append("自覚睡眠時間: \(String(format: "%.1f", sleep))時間")
+        }
+        if drinkingHabit != "未設定" { items.append("飲酒習慣: \(drinkingHabit)") }
+        if smokingHabit != "未設定" { items.append("喫煙習慣: \(smokingHabit)") }
+        if pregnancyStatus != "未設定" { items.append("妊娠有無: \(pregnancyStatus)") }
         if !dietaryRestrictions.isEmpty { items.append("食事制限/要望: \(dietaryRestrictions)") }
-        if !allergies.isEmpty { items.append("アレルギー: \(allergies)") }
+        if !allergies.isEmpty { items.append("食物アレルギー: \(allergies)") }
+        if !otherAllergies.isEmpty { items.append("その他アレルギー: \(otherAllergies)") }
         if !medicalHistory.isEmpty { items.append("健康上の留意点: \(medicalHistory)") }
         return items.joined(separator: ", ")
     }

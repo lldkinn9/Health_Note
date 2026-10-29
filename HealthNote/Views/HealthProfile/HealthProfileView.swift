@@ -39,6 +39,11 @@ public struct HealthProfileView: View {
     // 簡易問診票
     @State private var medicalHistory: String = ""
     @State private var allergies: String = ""
+    @State private var otherAllergies: String = ""
+    @State private var subjectiveSleepStr: String = ""
+    @State private var drinkingHabit: String = "未設定"
+    @State private var smokingHabit: String = "未設定"
+    @State private var pregnancyStatus: String = "未設定"
     @State private var dietaryRestrictions: String = ""
     @State private var healthCheckMemo: String = ""
 
@@ -414,7 +419,87 @@ public struct HealthProfileView: View {
             VStack(spacing: 12) {
                 surveyField(title: "既往歴・持病（高血圧・糖尿病など）", placeholder: "特になし", text: $medicalHistory)
                 Divider()
-                surveyField(title: "食物アレルギー", placeholder: "例: 甲殻類、卵", text: $allergies)
+                surveyField(title: "食物アレルギー", placeholder: "例: 甲殻類、卵、そば", text: $allergies)
+                Divider()
+                surveyField(title: "その他アレルギー（花粉・薬物・金属など）", placeholder: "例: スギ花粉、ハウスダスト、鎮痛薬、金属", text: $otherAllergies)
+                Divider()
+
+                // 自覚睡眠時間（手入力専用・iOSヘルスケアとは連動しない）
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("自覚睡眠時間（平均・手入力）")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        TextField("未設定", text: $subjectiveSleepStr)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 72)
+                            .onChange(of: subjectiveSleepStr) { _, _ in markChanged() }
+                        Text("時間")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+                    Text("※ヘルスケアとは連動せず、ご自身の自覚ベースの平均睡眠時間を記録します")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+
+                Divider()
+
+                // 飲酒習慣の有無
+                HStack {
+                    Text("飲酒習慣の有無")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Picker("飲酒習慣の有無", selection: $drinkingHabit) {
+                        Text("未設定").tag("未設定")
+                        Text("なし（飲まない）").tag("なし（飲まない）")
+                        Text("あり（機会飲酒・週1〜2回以下）").tag("あり（機会飲酒・週1〜2回以下）")
+                        Text("あり（週3〜5回）").tag("あり（週3〜5回）")
+                        Text("あり（ほぼ毎日）").tag("あり（ほぼ毎日）")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: drinkingHabit) { _, _ in markChanged() }
+                }
+
+                Divider()
+
+                // 喫煙習慣の有無
+                HStack {
+                    Text("喫煙習慣の有無")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Picker("喫煙習慣の有無", selection: $smokingHabit) {
+                        Text("未設定").tag("未設定")
+                        Text("なし（非喫煙）").tag("なし（非喫煙）")
+                        Text("過去に喫煙（禁煙済）").tag("過去に喫煙（禁煙済）")
+                        Text("あり（喫煙中）").tag("あり（喫煙中）")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: smokingHabit) { _, _ in markChanged() }
+                }
+
+                Divider()
+
+                // 妊娠中の有無
+                HStack {
+                    Text("妊娠中の有無")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Picker("妊娠中の有無", selection: $pregnancyStatus) {
+                        Text("未設定").tag("未設定")
+                        Text("なし").tag("なし")
+                        Text("あり（妊娠中）").tag("あり（妊娠中）")
+                        Text("授乳中").tag("授乳中")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: pregnancyStatus) { _, _ in markChanged() }
+                }
+
                 Divider()
                 surveyField(title: "食事の制限・ご要望", placeholder: "例: 減塩、低糖質を意識したい", text: $dietaryRestrictions)
                 Divider()
@@ -1028,16 +1113,21 @@ public struct HealthProfileView: View {
         return (start, endExclusive)
     }
 
-    private var periodRangeDisplayText: String {
+    /// 1月開始・4月開始ともに完全に統一された期間表記（例: "2026年1月〜2026年12月" / "2026年4月〜2027年3月"）
+    private var unifiedPeriodText: String {
         if expenseStartMonth == 4 {
-            return "\(selectedExpenseYear)年度（\(selectedExpenseYear)年4月〜\(selectedExpenseYear + 1)年3月）"
+            return "\(selectedExpenseYear)年4月〜\(selectedExpenseYear + 1)年3月"
         } else {
-            return "\(selectedExpenseYear)年（1月〜12月）の医療費"
+            return "\(selectedExpenseYear)年1月〜\(selectedExpenseYear)年12月"
         }
     }
 
+    private var periodRangeDisplayText: String {
+        "\(unifiedPeriodText) の医療費"
+    }
+
     private var periodShortTitle: String {
-        expenseStartMonth == 4 ? "\(selectedExpenseYear)年度（4月〜翌3月）" : "\(selectedExpenseYear)年（1月〜12月）"
+        unifiedPeriodText
     }
 
     private var yearFilteredExpenses: [MedicalExpenseRecord] {
@@ -1391,6 +1481,17 @@ public struct HealthProfileView: View {
             return currentBodyFatTrimmed != savedBodyFatStr
         }()
 
+        let savedSleepStr = (p.subjectiveSleepHours != nil && p.subjectiveSleepHours! > 0)
+            ? String(format: "%.1f", p.subjectiveSleepHours!)
+            : ""
+        let currentSleepTrimmed = subjectiveSleepStr.trimmingCharacters(in: .whitespaces)
+        let sleepDiffers: Bool = {
+            if let cur = Double(currentSleepTrimmed), let saved = p.subjectiveSleepHours {
+                return abs(cur - saved) > 0.05
+            }
+            return currentSleepTrimmed != savedSleepStr
+        }()
+
         return nickname != p.nickname
             || ageStr.trimmingCharacters(in: .whitespaces) != savedAgeStr
             || genderRaw != p.genderRaw
@@ -1400,6 +1501,11 @@ public struct HealthProfileView: View {
             || activityLevel != p.activityLevel
             || medicalHistory != p.medicalHistory
             || allergies != p.allergies
+            || otherAllergies != p.otherAllergies
+            || sleepDiffers
+            || drinkingHabit != p.drinkingHabit
+            || smokingHabit != p.smokingHabit
+            || pregnancyStatus != p.pregnancyStatus
             || dietaryRestrictions != p.dietaryRestrictions
             || healthCheckMemo != p.healthCheckMemo
     }
@@ -1447,6 +1553,15 @@ public struct HealthProfileView: View {
             activityLevel = p.activityLevel
             medicalHistory = p.medicalHistory
             allergies = p.allergies
+            otherAllergies = p.otherAllergies
+            if let sleep = p.subjectiveSleepHours, sleep > 0 {
+                subjectiveSleepStr = String(format: "%.1f", sleep)
+            } else {
+                subjectiveSleepStr = ""
+            }
+            drinkingHabit = p.drinkingHabit
+            smokingHabit = p.smokingHabit
+            pregnancyStatus = p.pregnancyStatus
             dietaryRestrictions = p.dietaryRestrictions
             healthCheckMemo = p.healthCheckMemo
             if let bDate = p.birthDate {
@@ -1544,6 +1659,15 @@ public struct HealthProfileView: View {
         profileToSave.activityLevel = activityLevel
         profileToSave.medicalHistory = medicalHistory
         profileToSave.allergies = allergies
+        profileToSave.otherAllergies = otherAllergies
+        if let parsedSleep = Double(subjectiveSleepStr.trimmingCharacters(in: .whitespaces)), parsedSleep > 0 {
+            profileToSave.subjectiveSleepHours = parsedSleep
+        } else {
+            profileToSave.subjectiveSleepHours = nil
+        }
+        profileToSave.drinkingHabit = drinkingHabit
+        profileToSave.smokingHabit = smokingHabit
+        profileToSave.pregnancyStatus = pregnancyStatus
         profileToSave.dietaryRestrictions = dietaryRestrictions
         profileToSave.healthCheckMemo = healthCheckMemo
         profileToSave.birthDate = hasBirthDate ? birthDate : nil

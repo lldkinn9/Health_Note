@@ -469,8 +469,11 @@ public struct MealsView: View {
     }
 
     private func syncWidgetAfterDelete() {
+        let descriptor = FetchDescriptor<Meal>(sortBy: [SortDescriptor(\Meal.timestamp, order: .forward)])
+        let fetched = (try? modelContext.fetch(descriptor)) ?? []
         let calendar = Calendar.current
-        let todayList = allMeals.filter { calendar.isDateInToday($0.timestamp) }
+        let todayList = fetched.filter { calendar.isDateInToday($0.timestamp) }
+        let latestMealUpToNow = fetched.filter { $0.timestamp <= Date() }.last
         let intake = todayList.reduce(0) { $0 + $1.calories }
         let p = todayList.reduce(0) { $0 + $1.protein }
         let f = todayList.reduce(0) { $0 + $1.fat }
@@ -483,7 +486,7 @@ public struct MealsView: View {
             protein: p,
             fat: f,
             carbs: c,
-            lastMealDate: todayList.last?.timestamp
+            lastMealDate: latestMealUpToNow?.timestamp ?? todayList.last?.timestamp
         )
     }
 }

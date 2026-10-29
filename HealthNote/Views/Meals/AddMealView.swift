@@ -372,13 +372,15 @@ public struct AddMealView: View {
         let c = todayList.reduce(0) { $0 + $1.carbs }
         let burned = HealthKitManager.shared.vitals.totalEnergyBurned
 
+        let latestMealUpToNow = fetched.filter { $0.timestamp <= Date() }.last
+
         WidgetDataManager.shared.updateWidgetData(
             intakeCalories: intake,
             burnedCalories: burned,
             protein: p,
             fat: f,
             carbs: c,
-            lastMealDate: todayList.last?.timestamp
+            lastMealDate: latestMealUpToNow?.timestamp ?? todayList.last?.timestamp
         )
     }
 }
