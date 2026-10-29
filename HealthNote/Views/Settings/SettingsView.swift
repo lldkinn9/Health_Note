@@ -6,6 +6,8 @@ public struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allMeals: [Meal]
     @Query private var allProfiles: [HealthProfile]
+    @Query private var allHealthChecks: [HealthCheckRecord]
+    @Query private var allMedicalExpenses: [MedicalExpenseRecord]
     @Query private var allMedications: [MedicationItem]
     @Query private var allMessages: [AdvisorChatMessage]
     @Query private var allAdvices: [DailyAdvice]
@@ -259,7 +261,7 @@ public struct SettingsView: View {
                     showingFinalResetAlert = true
                 }
             } message: {
-                Text("食事ログ、マイカルテ、服薬管理、チャット履歴を含むすべてのデータが削除されます。この操作は取り消せません。")
+                Text("食事ログ、マイカルテ、健診結果、医療費ノート、服薬管理、チャット履歴を含むすべてのデータが削除されます。この操作は取り消せません。")
             }
             .alert("最終確認：本当に初期化しますか？", isPresented: $showingFinalResetAlert) {
                 Button("キャンセル", role: .cancel) {}
@@ -327,6 +329,8 @@ public struct SettingsView: View {
     private func performCompleteReset() {
         for item in allMeals { modelContext.delete(item) }
         for item in allProfiles { modelContext.delete(item) }
+        for item in allHealthChecks { modelContext.delete(item) }
+        for item in allMedicalExpenses { modelContext.delete(item) }
         for item in allMedications { modelContext.delete(item) }
         for item in allMessages { modelContext.delete(item) }
         for item in allAdvices { modelContext.delete(item) }

@@ -120,3 +120,172 @@ public final class HealthProfile {
         return items.joined(separator: ", ")
     }
 }
+
+// MARK: - 健康診断・人間ドック記録モデル（CloudKit 準拠：全項目デフォルト値またはOptional）
+@Model
+public final class HealthCheckRecord: Identifiable {
+    public var id: UUID = UUID()
+    public var examDate: Date = Date()
+    public var facilityName: String = ""
+
+    // 身体計測・血圧
+    public var heightCm: Double? = nil
+    public var weightKg: Double? = nil
+    public var waistCm: Double? = nil
+    public var systolicBP: Int? = nil     // 最高血圧 (mmHg)
+    public var diastolicBP: Int? = nil    // 最低血圧 (mmHg)
+
+    // 脂質検査
+    public var ldlCholesterol: Int? = nil // LDLコレステロール (mg/dL)
+    public var hdlCholesterol: Int? = nil // HDLコレステロール (mg/dL)
+    public var triglycerides: Int? = nil  // 中性脂肪 TG (mg/dL)
+
+    // 肝機能検査
+    public var ast: Int? = nil            // AST / GOT (U/L)
+    public var alt: Int? = nil            // ALT / GPT (U/L)
+    public var gammaGTP: Int? = nil       // γ-GTP (U/L)
+
+    // 糖代謝・尿酸・腎機能
+    public var fastingGlucose: Int? = nil // 空腹時血糖 (mg/dL)
+    public var hba1c: Double? = nil       // HbA1c (%)
+    public var uricAcid: Double? = nil    // 尿酸値 UA (mg/dL)
+    public var creatinine: Double? = nil  // クレアチニン (mg/dL)
+    public var egfr: Double? = nil        // eGFR (mL/min/1.73m²)
+
+    public var memo: String = ""
+
+    @Attribute(.externalStorage)
+    public var sheetImageData: Data? = nil
+
+    public var createdAt: Date = Date()
+
+    public init(
+        id: UUID = UUID(),
+        examDate: Date = Date(),
+        facilityName: String = "",
+        heightCm: Double? = nil,
+        weightKg: Double? = nil,
+        waistCm: Double? = nil,
+        systolicBP: Int? = nil,
+        diastolicBP: Int? = nil,
+        ldlCholesterol: Int? = nil,
+        hdlCholesterol: Int? = nil,
+        triglycerides: Int? = nil,
+        ast: Int? = nil,
+        alt: Int? = nil,
+        gammaGTP: Int? = nil,
+        fastingGlucose: Int? = nil,
+        hba1c: Double? = nil,
+        uricAcid: Double? = nil,
+        creatinine: Double? = nil,
+        egfr: Double? = nil,
+        memo: String = "",
+        sheetImageData: Data? = nil
+    ) {
+        self.id = id
+        self.examDate = examDate
+        self.facilityName = facilityName
+        self.heightCm = heightCm
+        self.weightKg = weightKg
+        self.waistCm = waistCm
+        self.systolicBP = systolicBP
+        self.diastolicBP = diastolicBP
+        self.ldlCholesterol = ldlCholesterol
+        self.hdlCholesterol = hdlCholesterol
+        self.triglycerides = triglycerides
+        self.ast = ast
+        self.alt = alt
+        self.gammaGTP = gammaGTP
+        self.fastingGlucose = fastingGlucose
+        self.hba1c = hba1c
+        self.uricAcid = uricAcid
+        self.creatinine = creatinine
+        self.egfr = egfr
+        self.memo = memo
+        self.sheetImageData = sheetImageData
+        self.createdAt = Date()
+    }
+
+    /// 個人識別情報を含まない検査数値のみのAIコンテキスト要約
+    public var aiLabSummary: String {
+        var parts: [String] = []
+        if let sys = systolicBP, let dia = diastolicBP { parts.append("血圧:\(sys)/\(dia)mmHg") }
+        if let ldl = ldlCholesterol { parts.append("LDL:\(ldl)mg/dL") }
+        if let hdl = hdlCholesterol { parts.append("HDL:\(hdl)mg/dL") }
+        if let tg = triglycerides { parts.append("中性脂肪:\(tg)mg/dL") }
+        if let ast = ast, let alt = alt { parts.append("AST/ALT:\(ast)/\(alt)U/L") }
+        if let ggtp = gammaGTP { parts.append("γ-GTP:\(ggtp)U/L") }
+        if let fbg = fastingGlucose { parts.append("空腹時血糖:\(fbg)mg/dL") }
+        if let a1c = hba1c { parts.append("HbA1c:\(String(format: "%.1f", a1c))%") }
+        if let ua = uricAcid { parts.append("尿酸:\(String(format: "%.1f", ua))mg/dL") }
+        return parts.joined(separator: ", ")
+    }
+}
+
+// MARK: - 医療費区分
+public enum MedicalExpenseCategory: String, CaseIterable, Codable, Identifiable {
+    case clinic = "診療・通院"
+    case pharmacy = "処方薬・薬局"
+    case dental = "歯科"
+    case checkup = "健診・人間ドック"
+    case otc = "市販薬（対象医薬品）"
+    case transport = "通院交通費"
+    case other = "その他医療費"
+
+    public var id: String { rawValue }
+
+    public var iconName: String {
+        switch self {
+        case .clinic: return "stethoscope"
+        case .pharmacy: return "pills.fill"
+        case .dental: return "mouth.fill"
+        case .checkup: return "waveform.path.ecg.rectangle.fill"
+        case .otc: return "cross.vial.fill"
+        case .transport: return "tram.fill"
+        case .other: return "doc.text.fill"
+        }
+    }
+}
+
+// MARK: - 医療費記録モデル（CloudKit 準拠：全項目デフォルト値またはOptional）
+@Model
+public final class MedicalExpenseRecord: Identifiable {
+    public var id: UUID = UUID()
+    public var paymentDate: Date = Date()
+    public var facilityName: String = ""
+    public var categoryRaw: String = MedicalExpenseCategory.clinic.rawValue
+    public var amountYen: Int = 0
+    public var familyMember: String = "本人"
+    public var memo: String = ""
+
+    @Attribute(.externalStorage)
+    public var receiptImageData: Data? = nil
+
+    public var createdAt: Date = Date()
+
+    public init(
+        id: UUID = UUID(),
+        paymentDate: Date = Date(),
+        facilityName: String = "",
+        category: MedicalExpenseCategory = .clinic,
+        amountYen: Int = 0,
+        familyMember: String = "本人",
+        memo: String = "",
+        receiptImageData: Data? = nil
+    ) {
+        self.id = id
+        self.paymentDate = paymentDate
+        self.facilityName = facilityName
+        self.categoryRaw = category.rawValue
+        self.amountYen = amountYen
+        self.familyMember = familyMember
+        self.memo = memo
+        self.receiptImageData = receiptImageData
+        self.createdAt = Date()
+    }
+
+    public var category: MedicalExpenseCategory {
+        get { MedicalExpenseCategory(rawValue: categoryRaw) ?? .clinic }
+        set { categoryRaw = newValue.rawValue }
+    }
+}

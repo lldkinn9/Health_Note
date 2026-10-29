@@ -68,6 +68,38 @@ public struct GeminiDiagnosticResult {
     public let message: String
 }
 
+/// 健診結果シートAI読取結果DTO（個人識別情報を除外した検査数値のみ）
+public struct HealthCheckAnalysisResult: Codable {
+    public let examDate: String?       // YYYY-MM-DD
+    public let facilityName: String?
+    public let heightCm: Double?
+    public let weightKg: Double?
+    public let waistCm: Double?
+    public let systolicBP: Int?
+    public let diastolicBP: Int?
+    public let ldlCholesterol: Int?
+    public let hdlCholesterol: Int?
+    public let triglycerides: Int?
+    public let ast: Int?
+    public let alt: Int?
+    public let gammaGTP: Int?
+    public let fastingGlucose: Int?
+    public let hba1c: Double?
+    public let uricAcid: Double?
+    public let creatinine: Double?
+    public let egfr: Double?
+    public let memo: String?
+}
+
+/// 医療費領収書・明細書AI読取結果DTO（個人識別情報を除外した支払情報のみ）
+public struct MedicalExpenseAnalysisResult: Codable {
+    public let paymentDate: String?    // YYYY-MM-DD
+    public let facilityName: String?
+    public let category: String?
+    public let amountYen: Int?
+    public let memo: String?
+}
+
 /// Google Gemini API連携サービス
 /// - 特定世代モデルのハードコード禁止・環境変数＆最新公式エイリアス動的解決
 /// - メイン ➔ サブ ➔ models.list 動的選定による多重自動フェールオーバー（404 / 429 / 500 / 503 自動切替）
@@ -412,7 +444,8 @@ public final class GeminiService {
     public func chatWithAdvisor(
         messages: [AdvisorChatMessage],
         profile: HealthProfile?,
-        todaysMeals: [Meal]
+        todaysMeals: [Meal],
+        latestHealthCheck: HealthCheckRecord? = nil
     ) async throws -> String {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
@@ -436,6 +469,13 @@ public final class GeminiService {
 
         if let profile = profile {
             systemInstruction += "\n\n【ユーザーのカルテ参考情報】\n\(profile.aiContextSummary)"
+        }
+
+        if let hc = latestHealthCheck {
+            let labSummary = hc.aiLabSummary
+            if !labSummary.isEmpty {
+                systemInstruction += "\n\n【直近の健康診断記録（診断行為は行わず、一般的な食生活バランスの参考としてのみ参照）】\n\(labSummary)"
+            }
         }
 
         if !todaysMeals.isEmpty {
@@ -528,6 +568,137 @@ public final class GeminiService {
         }
 
         return try JSONDecoder().decode(DailyEvaluationResult.self, from: cleanData)
+    }
+
+    // MARK: - 8. 健康診断結果シートの画像AI自動読取（OCR補助・個人情報破棄・診断行為禁止）
+    public func analyzeHealthCheckPhoto(imageData: Data) async throws -> HealthCheckAnalysisResult {
+        guard let apiKey = getApiKey() else {
+            throw GeminiError.missingApiKey
+        }
+
+        let optimizedData = optimizeImageData(imageData)
+        let base64String = optimizedData.base64EncodedString()
+
+        let prompt = """
+        添付された健康診断・人間ドックの結果表の画像から、検査数値のみを読み取って以下のJSON形式のみで出力してください。
+
+        【厳格なプライバシー保護・法令遵守ルール】
+        - 受診者の氏名、住所、生年月日、保険者番号、被保険者記号・番号などの個人識別情報（PII）は絶対に抽出・出力しないでください。
+        - 病気の診断や医学的判定コメントの作成は一切行わず、紙面に印字されている客観的な検査数値のみを抽出してください。
+        - 画像内に存在しない項目や読み取れない項目は推測せず必ず `null` にしてください。
+        - 和暦（令和6年、R6、2026年等）の受診日は西暦 `YYYY-MM-DD` 形式に変換してください（例: 令和6年=2024年、令和7年=2025年、令和8年=2026年）。
+
+        出力スキーマ（JSONのみ、Markdownのバッククォート不要）:
+        {
+          "examDate": "2026-05-15",
+          "facilityName": "〇〇健診センター",
+          "heightCm": 170.5,
+          "weightKg": 64.2,
+          "waistCm": 78.0,
+          "systolicBP": 118,
+          "diastolicBP": 74,
+          "ldlCholesterol": 112,
+          "hdlCholesterol": 62,
+          "triglycerides": 95,
+          "ast": 21,
+          "alt": 19,
+          "gammaGTP": 28,
+          "fastingGlucose": 92,
+          "hba1c": 5.4,
+          "uricAcid": 5.8,
+          "creatinine": 0.82,
+          "egfr": 78.5,
+          "memo": null
+        }
+        """
+
+        let requestBody: [String: Any] = [
+            "contents": [
+                [
+                    "parts": [
+                        ["text": prompt],
+                        [
+                            "inline_data": [
+                                "mime_type": "image/jpeg",
+                                "data": base64String
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            "generationConfig": [
+                "temperature": 0.1,
+                "response_mime_type": "application/json"
+            ]
+        ]
+
+        let (responseData, _) = try await executeWithFailover(apiKey: apiKey, requestBody: requestBody)
+        let jsonText = try extractText(from: responseData)
+
+        guard let cleanData = cleanJsonString(jsonText).data(using: .utf8) else {
+            throw GeminiError.parsingFailed
+        }
+
+        return try JSONDecoder().decode(HealthCheckAnalysisResult.self, from: cleanData)
+    }
+
+    // MARK: - 9. 医療費領収書・明細書の画像AI自動読取（OCR補助・個人情報破棄）
+    public func analyzeMedicalReceiptPhoto(imageData: Data) async throws -> MedicalExpenseAnalysisResult {
+        guard let apiKey = getApiKey() else {
+            throw GeminiError.missingApiKey
+        }
+
+        let optimizedData = optimizeImageData(imageData)
+        let base64String = optimizedData.base64EncodedString()
+
+        let prompt = """
+        添付された病院・クリニック・歯科・調剤薬局の領収書またはレシート画像から、医療費記録に必要な項目のみを読み取って以下のJSON形式のみで出力してください。
+
+        【厳格なプライバシー保護ルール】
+        - 患者氏名、カルテ番号、保険証記号・番号などの個人識別情報は絶対に抽出・出力しないでください。
+        - `amountYen` には、実際に窓口やレジで支払った「自己負担合計金額（領収金額・税込の整数円）」を入れてください（保険点数そのものではなく円単位の支払額）。
+        - `category` は以下のいずれか最も近い1つを選んでください:
+          "診療・通院", "処方薬・薬局", "歯科", "健診・人間ドック", "市販薬（対象医薬品）", "通院交通費", "その他医療費"
+        - 和暦（令和6年=2024、令和7年=2025、令和8年=2026等）の日付は `YYYY-MM-DD` 形式に変換してください。読み取れない項目は `null` にしてください。
+
+        出力スキーマ（JSONのみ、Markdownのバッククォート不要）:
+        {
+          "paymentDate": "2026-10-20",
+          "facilityName": "〇〇クリニック",
+          "category": "診療・通院",
+          "amountYen": 2480,
+          "memo": "内科受診"
+        }
+        """
+
+        let requestBody: [String: Any] = [
+            "contents": [
+                [
+                    "parts": [
+                        ["text": prompt],
+                        [
+                            "inline_data": [
+                                "mime_type": "image/jpeg",
+                                "data": base64String
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            "generationConfig": [
+                "temperature": 0.1,
+                "response_mime_type": "application/json"
+            ]
+        ]
+
+        let (responseData, _) = try await executeWithFailover(apiKey: apiKey, requestBody: requestBody)
+        let jsonText = try extractText(from: responseData)
+
+        guard let cleanData = cleanJsonString(jsonText).data(using: .utf8) else {
+            throw GeminiError.parsingFailed
+        }
+
+        return try JSONDecoder().decode(MedicalExpenseAnalysisResult.self, from: cleanData)
     }
 
     // MARK: - Private HTTP & Parsing Helpers

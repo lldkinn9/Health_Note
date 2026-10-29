@@ -6,32 +6,37 @@ public enum ModelContainerFactory {
     public static let schema = Schema([
         Meal.self,
         HealthProfile.self,
+        HealthCheckRecord.self,
+        MedicalExpenseRecord.self,
         MedicationItem.self,
         AdvisorChatMessage.self,
         DailyAdvice.self
     ])
 
-    /// アプリ本番用コンテナ生成（CloudKit Private Database連携対応）
+    /// アプリ本番用コンテナ生成（CloudKit Private Database連携対応・ローカル自動フォールバック付き）
     @MainActor
     public static func createLiveContainer(enableCloudKit: Bool = true) -> ModelContainer {
-        let modelConfiguration: ModelConfiguration
-
         if enableCloudKit {
-            // CloudKit Private Database 自動同期設定
-            modelConfiguration = ModelConfiguration(
+            let cloudConfig = ModelConfiguration(
                 schema: schema,
                 isStoredInMemoryOnly: false,
                 cloudKitDatabase: .automatic
             )
-        } else {
-            modelConfiguration = ModelConfiguration(
-                schema: schema,
-                isStoredInMemoryOnly: false
-            )
+            if let container = try? ModelContainer(for: schema, configurations: [cloudConfig]) {
+                ensureInitialData(context: container.mainContext)
+                return container
+            }
         }
 
+        // iCloud未サインイン端末やマイグレーション競合時でもクラッシュさせずローカルDBで安全に起動
+        let localConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .none
+        )
+
         do {
-            let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let container = try ModelContainer(for: schema, configurations: [localConfig])
             ensureInitialData(context: container.mainContext)
             return container
         } catch {

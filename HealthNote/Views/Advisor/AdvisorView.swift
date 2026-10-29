@@ -7,6 +7,7 @@ public struct AdvisorView: View {
     @Query(sort: \AdvisorChatMessage.timestamp, order: .forward) private var messages: [AdvisorChatMessage]
     @Query private var profiles: [HealthProfile]
     @Query(sort: \Meal.timestamp, order: .forward) private var allMeals: [Meal]
+    @Query(sort: \HealthCheckRecord.examDate, order: .reverse) private var healthChecks: [HealthCheckRecord]
 
     @State private var inputText: String = ""
     @State private var isSending: Bool = false
@@ -278,7 +279,8 @@ public struct AdvisorView: View {
                 let reply = try await GeminiService.shared.chatWithAdvisor(
                     messages: messages + [userMsg],
                     profile: profile,
-                    todaysMeals: todaysMeals
+                    todaysMeals: todaysMeals,
+                    latestHealthCheck: healthChecks.first
                 )
 
                 await MainActor.run {
