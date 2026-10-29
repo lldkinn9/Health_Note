@@ -838,7 +838,7 @@ public struct CalendarView: View {
 
     private func resolvedBodyFat(on date: Date) -> Double? {
         if let hkBF = selectedDayHKMetrics.bodyFatPercentage, hkBF > 0 { return hkBF }
-        if let checkBF = checks(on: date).first?.bodyFatPercentage, checkBF > 0 { return checkBF }
+        if let checkBF = checks(on: date).first?.bodyFatPercent, checkBF > 0 { return checkBF }
         let key = DailyHealthLog.makeDateKey(for: date)
         if let logBF = dailyLogs.first(where: { $0.dateKey == key })?.bodyFatPercentage, logBF > 0 { return logBF }
         if Calendar.current.isDateInToday(date), let profBF = profile?.bodyFatPercentage, profBF > 0 { return profBF }
