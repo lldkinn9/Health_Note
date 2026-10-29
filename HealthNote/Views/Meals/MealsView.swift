@@ -10,9 +10,9 @@ public struct MealsView: View {
 
     @State private var selectedDate: Date = Date()
     @State private var showingAddMeal: Bool = false
+    @State private var editingMeal: Meal? = nil
     @State private var defaultMealTypeToAdd: MealType = .lunch
-    @State private var isGeneratingAdvice: Bool = false
-    @State private var adviceErrorMessage: String? = nil
+    @ObservedObject private var evaluationCoordinator = DailyEvaluationCoordinator.shared
 
     public init() {}
 
@@ -73,7 +73,16 @@ public struct MealsView: View {
             .navigationTitle("食事ログ")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingAddMeal) {
-                AddMealView(defaultMealType: defaultMealTypeToAdd)
+                AddMealView(defaultMealType: defaultMealTypeToAdd, defaultDate: selectedDate)
+            }
+            .sheet(item: $editingMeal) { meal in
+                AddMealView(mealToEdit: meal)
+            }
+            .onAppear {
+                autoRefreshAdviceIfNeeded()
+            }
+            .onChange(of: selectedDate) { _, _ in
+                autoRefreshAdviceIfNeeded()
             }
         }
     }
@@ -235,17 +244,37 @@ public struct MealsView: View {
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            // 削除ボタン
-            Button(role: .destructive, action: {
-                modelContext.delete(meal)
-                try? modelContext.save()
-                syncWidgetAfterDelete()
-            }) {
-                Image(systemName: "trash")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary.opacity(0.7))
+            // 編集（鉛筆）ボタン ＆ 削除（ゴミ箱）ボタン
+            HStack(spacing: 10) {
+                Button(action: {
+                    editingMeal = meal
+                }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundColor(AppTheme.emerald)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(AppTheme.emerald.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
+
+                Button(role: .destructive, action: {
+                    let targetDate = meal.timestamp
+                    modelContext.delete(meal)
+                    try? modelContext.save()
+                    syncWidgetAfterDelete()
+                    DailyEvaluationCoordinator.shared.refreshEvaluation(
+                        for: targetDate,
+                        context: modelContext
+                    )
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13.5))
+                        .foregroundColor(.secondary.opacity(0.75))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(12)
@@ -273,9 +302,12 @@ public struct MealsView: View {
         }
     }
 
-    // MARK: - 5. 【最下部】AIアドバイザー評価ブロック
+    // MARK: - 5. 【最下部】AIアドバイザー評価ブロック（食事登録・編集・削除時に自動更新）
     private var aiDailyEvaluationBlock: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let isGenerating = evaluationCoordinator.isEvaluating(dateKey: selectedDateKey)
+        let coordinatorError = evaluationCoordinator.errorMessage(for: selectedDateKey)
+
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
@@ -286,16 +318,22 @@ public struct MealsView: View {
 
                 Spacer()
 
-                if isGeneratingAdvice {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                } else {
-                    Button(action: { generateAdvice() }) {
-                        Label(todaysAdvice == nil ? "評価を生成" : "再評価", systemImage: "arrow.clockwise")
-                            .font(.system(size: 12, weight: .bold))
+                if isGenerating {
+                    HStack(spacing: 5) {
+                        ProgressView()
+                            .scaleEffect(0.75)
+                        Text("自動更新中...")
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.indigo)
                     }
-                    .disabled(todaysMeals.isEmpty)
+                } else if !todaysMeals.isEmpty && GeminiService.shared.getApiKey() != nil {
+                    Button(action: { generateAdvice() }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.indigo.opacity(0.75))
+                            .padding(4)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -360,7 +398,7 @@ public struct MealsView: View {
                 VStack(spacing: 8) {
                     let hasApiKey = GeminiService.shared.getApiKey() != nil
                     if hasApiKey {
-                        Text(todaysMeals.isEmpty ? "食事を記録すると、AIが1日の栄養バランスを総合評価します。" : "右上の「評価を生成」ボタンを押すと、AIが本日の食事を総括講評します。")
+                        Text(isGenerating ? "登録された食事内容をもとにAI評価を作成しています..." : "食事を記録すると、AIが1日の栄養バランスを自動で総合評価します。")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -378,8 +416,8 @@ public struct MealsView: View {
                 }
             }
 
-            if let adviceErrorMessage {
-                Text(adviceErrorMessage)
+            if let coordinatorError {
+                Text(coordinatorError)
                     .font(.system(size: 11))
                     .foregroundColor(.red)
             }
@@ -394,41 +432,32 @@ public struct MealsView: View {
         .appCard()
     }
 
-    // MARK: - AIアドバイス生成
+    // MARK: - AIアドバイス生成（手動リトライ ＆ 未評価時の自動補完）
     private func generateAdvice() {
         guard !todaysMeals.isEmpty else { return }
-        isGeneratingAdvice = true
-        adviceErrorMessage = nil
+        evaluationCoordinator.refreshEvaluation(
+            for: selectedDate,
+            context: modelContext,
+            showMissingKeyError: true
+        )
+    }
 
-        Task {
-            do {
-                let result = try await GeminiService.shared.generateDailyEvaluation(meals: todaysMeals, profile: profile)
-                await MainActor.run {
-                    if let existing = todaysAdvice {
-                        existing.score = result.score
-                        existing.adviceText = result.summary
-                        existing.goodPoints = result.goodPoints
-                        existing.improvementPoints = result.improvementPoints
-                        existing.generatedAt = Date()
-                    } else {
-                        let newAdvice = DailyAdvice(
-                            dateKey: selectedDateKey,
-                            adviceText: result.summary,
-                            score: result.score,
-                            goodPoints: result.goodPoints,
-                            improvementPoints: result.improvementPoints
-                        )
-                        modelContext.insert(newAdvice)
-                    }
-                    try? modelContext.save()
-                    isGeneratingAdvice = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.adviceErrorMessage = error.localizedDescription
-                    self.isGeneratingAdvice = false
-                }
+    private func autoRefreshAdviceIfNeeded() {
+        guard !todaysMeals.isEmpty,
+              GeminiService.shared.getApiKey() != nil,
+              !evaluationCoordinator.isEvaluating(dateKey: selectedDateKey),
+              evaluationCoordinator.errorMessage(for: selectedDateKey) == nil else {
+            return
+        }
+
+        let latestMealUpdated = todaysMeals.map(\.updatedAt).max() ?? Date.distantPast
+        if let existing = todaysAdvice {
+            // 最後の評価生成以降に食事の追加・編集があった場合も自動的に最新化
+            if latestMealUpdated > existing.generatedAt.addingTimeInterval(2) {
+                evaluationCoordinator.refreshEvaluation(for: selectedDate, context: modelContext)
             }
+        } else {
+            evaluationCoordinator.refreshEvaluation(for: selectedDate, context: modelContext)
         }
     }
 

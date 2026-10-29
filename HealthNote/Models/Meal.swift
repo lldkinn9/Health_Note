@@ -33,7 +33,7 @@ public enum MealType: String, CaseIterable, Codable, Identifiable {
 /// 食事レコード（SwiftData + CloudKit 同期準拠）
 /// CloudKit制約: 全フィールドに初期値があるかオプショナルであること、@Attribute(.unique)は非使用
 @Model
-public final class Meal {
+public final class Meal: Identifiable {
     public var id: UUID = UUID()
     public var timestamp: Date = Date()
     public var mealTypeRaw: String = MealType.lunch.rawValue

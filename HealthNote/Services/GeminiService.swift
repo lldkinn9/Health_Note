@@ -1,4 +1,6 @@
 import Foundation
+import Combine
+import SwiftData
 import UIKit
 
 public enum GeminiError: LocalizedError {
@@ -917,5 +919,115 @@ public final class GeminiService {
         }
 
         return resizedImage.jpegData(compressionQuality: 0.8) ?? data
+    }
+}
+
+// MARK: - 食事登録・編集・削除時のAI栄養評価 自動更新コーディネーター
+@MainActor
+public final class DailyEvaluationCoordinator: ObservableObject {
+    public static let shared = DailyEvaluationCoordinator()
+
+    @Published public private(set) var evaluatingDateKeys: Set<String> = []
+    @Published public var errorMessageByDateKey: [String: String] = [:]
+
+    private var activeTasks: [String: Task<Void, Never>] = [:]
+
+    private init() {}
+
+    public func isEvaluating(dateKey: String) -> Bool {
+        evaluatingDateKeys.contains(dateKey)
+    }
+
+    public func errorMessage(for dateKey: String) -> String? {
+        errorMessageByDateKey[dateKey]
+    }
+
+    /// 指定した日付の食事データをもとに「本日のAI食事総括・栄養評価」を裏側で自動更新する
+    public func refreshEvaluation(
+        for date: Date,
+        context: ModelContext,
+        showMissingKeyError: Bool = false
+    ) {
+        let dateKey = DailyAdvice.makeDateKey(for: date)
+
+        // 同一日付の進行中リクエストがあればキャンセルし、最新の食事内容で再評価
+        activeTasks[dateKey]?.cancel()
+
+        let mealDescriptor = FetchDescriptor<Meal>(sortBy: [SortDescriptor(\Meal.timestamp, order: .forward)])
+        let allMeals = (try? context.fetch(mealDescriptor)) ?? []
+        let calendar = Calendar.current
+        let targetMeals = allMeals.filter { calendar.isDate($0.timestamp, inSameDayAs: date) }
+
+        let adviceDescriptor = FetchDescriptor<DailyAdvice>()
+        let allAdvices = (try? context.fetch(adviceDescriptor)) ?? []
+        let existingAdvice = allAdvices.first(where: { $0.dateKey == dateKey })
+
+        // 該当日の食事が0件になった場合は古い評価キャッシュをクリア
+        guard !targetMeals.isEmpty else {
+            if let existingAdvice {
+                context.delete(existingAdvice)
+                try? context.save()
+            }
+            evaluatingDateKeys.remove(dateKey)
+            errorMessageByDateKey[dateKey] = nil
+            activeTasks[dateKey] = nil
+            return
+        }
+
+        // APIキー未設定時は自動更新時は静かにスキップ（手動ボタン押下時のみ案内を表示）
+        guard GeminiService.shared.getApiKey() != nil else {
+            evaluatingDateKeys.remove(dateKey)
+            if showMissingKeyError {
+                errorMessageByDateKey[dateKey] = GeminiError.missingApiKey.localizedDescription
+            }
+            return
+        }
+
+        let profileDescriptor = FetchDescriptor<HealthProfile>()
+        let profile = (try? context.fetch(profileDescriptor))?.first
+
+        evaluatingDateKeys.insert(dateKey)
+        errorMessageByDateKey[dateKey] = nil
+
+        let task = Task { @MainActor [weak self] in
+            do {
+                let result = try await GeminiService.shared.generateDailyEvaluation(
+                    meals: targetMeals,
+                    profile: profile
+                )
+                guard !Task.isCancelled else { return }
+
+                let refreshedAdvices = (try? context.fetch(FetchDescriptor<DailyAdvice>())) ?? []
+                if let current = refreshedAdvices.first(where: { $0.dateKey == dateKey }) {
+                    current.score = result.score
+                    current.adviceText = result.summary
+                    current.goodPoints = result.goodPoints
+                    current.improvementPoints = result.improvementPoints
+                    current.generatedAt = Date()
+                } else {
+                    let newAdvice = DailyAdvice(
+                        dateKey: dateKey,
+                        adviceText: result.summary,
+                        score: result.score,
+                        goodPoints: result.goodPoints,
+                        improvementPoints: result.improvementPoints
+                    )
+                    context.insert(newAdvice)
+                }
+                try? context.save()
+
+                self?.evaluatingDateKeys.remove(dateKey)
+                self?.activeTasks[dateKey] = nil
+            } catch {
+                guard !Task.isCancelled else { return }
+                if !(error is CancellationError) {
+                    self?.errorMessageByDateKey[dateKey] = error.localizedDescription
+                }
+                self?.evaluatingDateKeys.remove(dateKey)
+                self?.activeTasks[dateKey] = nil
+            }
+        }
+
+        activeTasks[dateKey] = task
     }
 }

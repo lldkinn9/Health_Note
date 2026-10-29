@@ -2,10 +2,12 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
-/// 食事登録モーダル（Gemini写真解析・手動入力・HealthKit保存）
+/// 食事登録・編集モーダル（Gemini写真解析・手動入力・HealthKit保存・AI総括自動更新）
 public struct AddMealView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+
+    public let mealToEdit: Meal?
 
     @State private var mealType: MealType = .lunch
     @State private var name: String = ""
@@ -26,8 +28,28 @@ public struct AddMealView: View {
     // 食品辞書・過去履歴ピッカー
     @State private var showingFoodDictionary: Bool = false
 
-    public init(defaultMealType: MealType = .lunch) {
-        _mealType = State(initialValue: defaultMealType)
+    public init(
+        defaultMealType: MealType = .lunch,
+        defaultDate: Date? = nil,
+        mealToEdit: Meal? = nil
+    ) {
+        self.mealToEdit = mealToEdit
+        if let existing = mealToEdit {
+            _mealType = State(initialValue: existing.mealType)
+            _name = State(initialValue: existing.name)
+            _calories = State(initialValue: existing.calories)
+            _protein = State(initialValue: existing.protein)
+            _fat = State(initialValue: existing.fat)
+            _carbs = State(initialValue: existing.carbs)
+            _memo = State(initialValue: existing.memo)
+            _timestamp = State(initialValue: existing.timestamp)
+            _selectedImageData = State(initialValue: existing.imageData)
+        } else {
+            _mealType = State(initialValue: defaultMealType)
+            if let defaultDate, !Calendar.current.isDateInToday(defaultDate) {
+                _timestamp = State(initialValue: defaultDate)
+            }
+        }
     }
 
     public var body: some View {
@@ -231,7 +253,7 @@ public struct AddMealView: View {
                     TextField("食事メモ（任意）", text: $memo)
                 }
             }
-            .navigationTitle("食事の記録")
+            .navigationTitle(mealToEdit != nil ? "食事の編集" : "食事の記録")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -312,33 +334,67 @@ public struct AddMealView: View {
         }
     }
 
-    // MARK: - 食事レコードの保存 & HealthKit連携
+    // MARK: - 食事レコードの保存・更新 & AI栄養評価自動更新 & HealthKit連携
     private func saveMeal() {
-        let meal = Meal(
-            timestamp: timestamp,
-            mealType: mealType,
-            name: name.trimmingCharacters(in: .whitespaces),
-            calories: calories,
-            protein: protein,
-            fat: fat,
-            carbs: carbs,
-            imageData: selectedImageData,
-            memo: memo
-        )
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let previousDate = mealToEdit?.timestamp
+        let isNewRecord = (mealToEdit == nil)
+        let targetMeal: Meal
 
-        modelContext.insert(meal)
+        if let existing = mealToEdit {
+            existing.timestamp = timestamp
+            existing.mealType = mealType
+            existing.name = trimmedName
+            existing.calories = calories
+            existing.protein = protein
+            existing.fat = fat
+            existing.carbs = carbs
+            existing.imageData = selectedImageData
+            existing.memo = memo
+            existing.updatedAt = Date()
+            targetMeal = existing
+        } else {
+            let newMeal = Meal(
+                timestamp: timestamp,
+                mealType: mealType,
+                name: trimmedName,
+                calories: calories,
+                protein: protein,
+                fat: fat,
+                carbs: carbs,
+                imageData: selectedImageData,
+                memo: memo
+            )
+            modelContext.insert(newMeal)
+            targetMeal = newMeal
+        }
+
         try? modelContext.save()
 
         // ウィジェットへ即時同期
         syncWidgetAfterSave()
 
-        // HealthKitへの書き込みタスク
-        Task {
-            let success = await HealthKitManager.shared.saveMealToHealthKit(meal: meal)
-            if success {
-                await MainActor.run {
-                    meal.healthKitSynced = true
-                    try? modelContext.save()
+        // 食事を登録・編集したタイミングで「本日のAI食事総括・栄養評価」を自動的に更新
+        DailyEvaluationCoordinator.shared.refreshEvaluation(
+            for: timestamp,
+            context: modelContext
+        )
+        if let prev = previousDate, !Calendar.current.isDate(prev, inSameDayAs: timestamp) {
+            DailyEvaluationCoordinator.shared.refreshEvaluation(
+                for: prev,
+                context: modelContext
+            )
+        }
+
+        // HealthKitへの書き込みタスク（新規登録時または未同期時）
+        if isNewRecord || !targetMeal.healthKitSynced {
+            Task {
+                let success = await HealthKitManager.shared.saveMealToHealthKit(meal: targetMeal)
+                if success {
+                    await MainActor.run {
+                        targetMeal.healthKitSynced = true
+                        try? modelContext.save()
+                    }
                 }
             }
         }
