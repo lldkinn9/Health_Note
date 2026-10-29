@@ -18,9 +18,12 @@ public final class HealthProfile {
     public var id: UUID = UUID()
     public var nickname: String = "ユーザー"
     public var birthDate: Date? = nil
+    public var ageManual: Int? = nil
     public var genderRaw: String = "未設定"
     public var heightCm: Double = 170.0
     public var weightKg: Double = 65.0
+    public var bodyFatPercentage: Double? = nil
+    public var manualBodyMetricsUpdatedAt: Date? = nil
     public var targetWeightKg: Double = 62.0
     public var activityLevelRaw: String = ActivityLevel.moderate.rawValue
 
@@ -43,9 +46,11 @@ public final class HealthProfile {
         id: UUID = UUID(),
         nickname: String = "ユーザー",
         birthDate: Date? = nil,
+        ageManual: Int? = nil,
         genderRaw: String = "未設定",
         heightCm: Double = 170.0,
         weightKg: Double = 65.0,
+        bodyFatPercentage: Double? = nil,
         targetWeightKg: Double = 62.0,
         activityLevelRaw: String = ActivityLevel.moderate.rawValue,
         targetCalories: Double = 2000.0,
@@ -60,9 +65,11 @@ public final class HealthProfile {
         self.id = id
         self.nickname = nickname
         self.birthDate = birthDate
+        self.ageManual = ageManual
         self.genderRaw = genderRaw
         self.heightCm = heightCm
         self.weightKg = weightKg
+        self.bodyFatPercentage = bodyFatPercentage
         self.targetWeightKg = targetWeightKg
         self.activityLevelRaw = activityLevelRaw
         self.targetCalories = targetCalories
@@ -83,8 +90,9 @@ public final class HealthProfile {
         set { activityLevelRaw = newValue.rawValue }
     }
 
-    /// 年齢（生年月日からの算出）
+    /// 年齢（手入力値があれば優先し、なければ生年月日から算出）
     public var age: Int? {
+        if let ageManual, ageManual > 0 { return ageManual }
         guard let birthDate = birthDate else { return nil }
         return Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year
     }
@@ -113,6 +121,9 @@ public final class HealthProfile {
         if genderRaw != "未設定" { items.append("性別: \(genderRaw)") }
         items.append("身長: \(String(format: "%.1f", heightCm))cm")
         items.append("体重: \(String(format: "%.1f", weightKg))kg (BMI: \(String(format: "%.1f", bmi)))")
+        if let bf = bodyFatPercentage, bf > 0 {
+            items.append("体脂肪率: \(String(format: "%.1f", bf))%")
+        }
         items.append("日常活動レベル: \(activityLevel.rawValue)")
         if !dietaryRestrictions.isEmpty { items.append("食事制限/要望: \(dietaryRestrictions)") }
         if !allergies.isEmpty { items.append("アレルギー: \(allergies)") }

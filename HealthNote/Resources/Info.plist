@@ -25,7 +25,7 @@
 
     <!-- HealthKit 権限説明 -->
     <key>NSHealthShareUsageDescription</key>
-    <string>歩数、消費カロリー、心拍数、睡眠データを読み取り、本日の健康サマリを表示するためにヘルスケアデータを使用します。</string>
+    <string>歩数、消費カロリー、心拍数、睡眠、体重、体脂肪率データを読み取り、健康サマリおよびマイカルテに反映するためにヘルスケアデータを使用します。</string>
     <key>NSHealthUpdateUsageDescription</key>
     <string>アプリで記録した食事のカロリーおよびPFC栄養素をヘルスケアに書き込み保存するために使用します。</string>
 

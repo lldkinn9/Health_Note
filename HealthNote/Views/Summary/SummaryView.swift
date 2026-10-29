@@ -1,17 +1,32 @@
 import SwiftUI
 import SwiftData
 
-/// 「サマリ」画面（摂取/消費/ネットカロリー、服薬・サプリトグル、主要バイタル）
+/// サマリ画面右上の「＋」メニューから起動する登録モーダル種別
+private enum SummaryQuickAddType: String, Identifiable {
+    case meal
+    case healthCheck
+    case clinicExpense
+    case pharmacyExpense
+
+    var id: String { rawValue }
+}
+
+/// 「サマリ」画面（摂取/消費/ネットカロリー、服薬記録・サプリメント記録、主要バイタル）
 public struct SummaryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Meal.timestamp, order: .forward) private var allMeals: [Meal]
     @Query private var profiles: [HealthProfile]
     @Query(sort: \MedicationItem.orderIndex) private var medications: [MedicationItem]
 
     @StateObject private var healthKit = HealthKitManager.shared
-    @State private var showingAddMealModal: Bool = false
+    @State private var activeQuickAddModal: SummaryQuickAddType? = nil
 
-    public init() {}
+    public var onOpenProfileMedicationSettings: (() -> Void)?
+
+    public init(onOpenProfileMedicationSettings: (() -> Void)? = nil) {
+        self.onOpenProfileMedicationSettings = onOpenProfileMedicationSettings
+    }
 
     private var profile: HealthProfile? {
         profiles.first
@@ -31,6 +46,14 @@ public struct SummaryView: View {
     private var burnedCalories: Double { healthKit.vitals.totalEnergyBurned }
     private var netCalories: Double { intakeCalories - burnedCalories }
 
+    private var medicationOnlyItems: [MedicationItem] {
+        medications.filter { $0.kind == .medication }
+    }
+
+    private var supplementOnlyItems: [MedicationItem] {
+        medications.filter { $0.kind == .supplement }
+    }
+
     public var body: some View {
         NavigationStack {
             ScrollView {
@@ -41,10 +64,25 @@ public struct SummaryView: View {
                     // 2. PFCバランスカード
                     pfcCard
 
-                    // 3. 服薬・サプリメントチェック（毎日00:00自動リセット）
-                    medicationCheckSection
+                    // 3. 服薬記録カード（毎日 00:00 自動リセット・タイミング一括＆個別チェック）
+                    intakeTrackerCard(
+                        title: "服薬記録",
+                        iconName: "pills",
+                        accentColor: .orange,
+                        items: medicationOnlyItems,
+                        emptyGuide: "マイカルテの「服薬・サプリメント管理」から処方薬や常備薬を登録すると、ここでタイミング別・薬別に摂取記録を管理できます。"
+                    )
 
-                    // 4. 主要バイタルセクション（Apple HealthKit）
+                    // 4. サプリメント記録カード（毎日 00:00 自動リセット・タイミング一括＆個別チェック）
+                    intakeTrackerCard(
+                        title: "サプリメント記録",
+                        iconName: "sparkles",
+                        accentColor: AppTheme.emerald,
+                        items: supplementOnlyItems,
+                        emptyGuide: "マイカルテの「服薬・サプリメント管理」からサプリメントを登録すると、ここでタイミング別・サプリ別に摂取記録を管理できます。"
+                    )
+
+                    // 5. 主要バイタルセクション（Apple HealthKit）
                     vitalsSection
 
                     Spacer().frame(height: 24)
@@ -60,19 +98,55 @@ public struct SummaryView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { showingAddMealModal = true }) {
+                    Menu {
+                        Button(action: { activeQuickAddModal = .meal }) {
+                            Label("食事", systemImage: "fork.knife")
+                        }
+                        Button(action: { activeQuickAddModal = .healthCheck }) {
+                            Label("検査結果", systemImage: "waveform.path.ecg.rectangle.fill")
+                        }
+                        Button(action: { activeQuickAddModal = .clinicExpense }) {
+                            Label("診療明細", systemImage: "stethoscope")
+                        }
+                        Button(action: { activeQuickAddModal = .pharmacyExpense }) {
+                            Label("調剤明細", systemImage: "pills.fill")
+                        }
+                    } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 22))
                             .foregroundColor(AppTheme.emerald)
                     }
                 }
             }
-            .sheet(isPresented: $showingAddMealModal) {
-                AddMealView()
+            .sheet(item: $activeQuickAddModal) { modalType in
+                switch modalType {
+                case .meal:
+                    AddMealView()
+                case .healthCheck:
+                    HealthCheckEditorSheet(recordToEdit: nil)
+                case .clinicExpense:
+                    MedicalExpenseEditorSheet(
+                        recordToEdit: nil,
+                        initialCategory: .clinic,
+                        customTitle: "診療明細の記録"
+                    )
+                case .pharmacyExpense:
+                    MedicalExpenseEditorSheet(
+                        recordToEdit: nil,
+                        initialCategory: .pharmacy,
+                        customTitle: "調剤明細の記録"
+                    )
+                }
             }
             .onAppear {
                 checkMedicationDailyResets()
                 refreshData()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    checkMedicationDailyResets()
+                    refreshData()
+                }
             }
             .refreshable {
                 await healthKit.fetchTodayVitals()
@@ -188,73 +262,211 @@ public struct SummaryView: View {
         .appCard()
     }
 
-    // MARK: - 3. 服薬・サプリメントチェック
-    private var medicationCheckSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                HStack(spacing: 6) {
-                    Image(systemName: "pills.fill")
-                        .foregroundColor(.purple)
-                    Text("本日の服薬・サプリ")
-                        .font(.system(size: 15, weight: .bold))
+    // MARK: - 3 & 4. 服薬記録・サプリメント記録カード（個人用アプリUI準拠 ＋ 個別摂取管理）
+    @ViewBuilder
+    private func intakeTrackerCard(
+        title: String,
+        iconName: String,
+        accentColor: Color,
+        items: [MedicationItem],
+        emptyGuide: String
+    ) -> some View {
+        let activeTimings = DoseTiming.allCases.filter { timing in
+            items.contains { $0.hasTiming(timing) }
+        }
+        let activeTimingNames = activeTimings.map(\.rawValue).joined(separator: "・")
+
+        VStack(alignment: .leading, spacing: 14) {
+            // ヘッダー部分
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(accentColor.opacity(0.14))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: iconName)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(accentColor)
                 }
-                Spacer()
-                Text("毎日00:00自動リセット")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.primary)
+
+                        Text("毎日 00:00 自動リセット")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color(.tertiarySystemGroupedBackground)))
+                    }
+
+                    if let onOpenProfileMedicationSettings {
+                        Button(action: onOpenProfileMedicationSettings) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("マイカルテでタイミング設定")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(accentColor)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if !activeTimings.isEmpty {
+                        Text("対象タイミング（\(activeTimingNames)）のボタンを押して一括記録、または下の各項目をタップして個別に記録できます")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .lineSpacing(2)
+                    }
+                }
             }
 
-            if medications.isEmpty {
-                Text("マイカルテ画面から服薬やサプリを登録すると、ここに日々のチェックリストが表示されます。")
-                    .font(.system(size: 13))
+            if items.isEmpty || activeTimings.isEmpty {
+                Text(emptyGuide)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
-                    .padding(.vertical, 8)
+                    .lineSpacing(3)
+                    .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.tertiarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             } else {
-                VStack(spacing: 8) {
-                    ForEach(medications) { med in
+                // 5つのタイミングボタン（起床 / 朝 / 昼 / 夜 / 就寝前）
+                HStack(spacing: 6) {
+                    ForEach(DoseTiming.allCases) { timing in
+                        let scheduled = items.filter { $0.hasTiming(timing) }
+                        let totalCount = scheduled.count
+                        let takenCount = scheduled.filter { $0.isTakenToday(for: timing) }.count
+                        let isEnabled = totalCount > 0
+                        let isAllTaken = isEnabled && takenCount == totalCount
+                        let isPartial = isEnabled && takenCount > 0 && takenCount < totalCount
+
                         Button(action: {
+                            guard isEnabled else { return }
                             let generator = UIImpactFeedbackGenerator(style: .medium)
                             generator.impactOccurred()
-                            med.toggleCompletion()
+                            let shouldMarkTaken = !isAllTaken
+                            for item in scheduled {
+                                item.setTakenToday(shouldMarkTaken, for: timing)
+                            }
                             try? modelContext.save()
                         }) {
-                            HStack {
-                                Image(systemName: med.isCompleted ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 22))
-                                    .foregroundColor(med.isCompleted ? AppTheme.emerald : .secondary.opacity(0.5))
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(med.name)
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(med.isCompleted ? .secondary : .primary)
-                                        .strikethrough(med.isCompleted, color: .secondary)
-
-                                    HStack(spacing: 4) {
-                                        Text(med.timingRaw)
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundColor(.purple)
-                                        if !med.dosage.isEmpty {
-                                            Text("(\(med.dosage))")
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.secondary)
-                                        }
+                            VStack(spacing: 3) {
+                                HStack(spacing: 2) {
+                                    if isAllTaken {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 10, weight: .black))
                                     }
+                                    Text(timing.rawValue)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.75)
                                 }
+                                .foregroundColor(
+                                    !isEnabled ? Color.secondary.opacity(0.45) :
+                                    (isAllTaken ? .white : .primary)
+                                )
 
-                                Spacer()
-
-                                if med.isCompleted {
-                                    Text("完了")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(AppTheme.emerald)
+                                if isEnabled {
+                                    Text(isPartial ? "\(takenCount)/\(totalCount)種" : "\(totalCount)種")
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .foregroundColor(isAllTaken ? .white.opacity(0.92) : accentColor)
+                                } else {
+                                    Text(" ")
+                                        .font(.system(size: 10))
                                 }
                             }
-                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(
+                                        !isEnabled ? Color(.tertiarySystemGroupedBackground) :
+                                        (isAllTaken ? accentColor : (isPartial ? accentColor.opacity(0.12) : Color(.secondarySystemGroupedBackground)))
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(
+                                        !isEnabled ? Color.clear : accentColor.opacity(isAllTaken ? 1.0 : 0.65),
+                                        lineWidth: isEnabled ? 1.5 : 0
+                                    )
+                            )
                         }
-                        if med.id != medications.last?.id {
-                            Divider()
+                        .buttonStyle(.plain)
+                        .disabled(!isEnabled)
+                    }
+                }
+
+                // タイミング別の登録内容 ＆ 1種類ごとの個別摂取チェック一覧
+                VStack(spacing: 8) {
+                    ForEach(activeTimings) { timing in
+                        let scheduled = items.filter { $0.hasTiming(timing) }
+                        let allTaken = !scheduled.isEmpty && scheduled.allSatisfy { $0.isTakenToday(for: timing) }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(alignment: .top, spacing: 8) {
+                                Text("[\(timing.rawValue)]")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(allTaken ? accentColor : .secondary)
+                                    .frame(minWidth: 38, alignment: .leading)
+                                    .padding(.top, 3)
+
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(scheduled) { med in
+                                        let taken = med.isTakenToday(for: timing)
+                                        Button(action: {
+                                            let generator = UIImpactFeedbackGenerator(style: .light)
+                                            generator.impactOccurred()
+                                            med.toggleIntakeToday(for: timing)
+                                            try? modelContext.save()
+                                        }) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: taken ? "checkmark.circle.fill" : "circle")
+                                                    .font(.system(size: 15, weight: .bold))
+                                                    .foregroundColor(taken ? accentColor : .secondary.opacity(0.45))
+
+                                                Text(med.cleanName)
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .foregroundColor(taken ? .primary : .primary.opacity(0.85))
+                                                    .multilineTextAlignment(.leading)
+
+                                                Spacer(minLength: 4)
+
+                                                let doseText = med.formattedDosage
+                                                if !doseText.isEmpty {
+                                                    Text(doseText)
+                                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                                        .foregroundColor(taken ? accentColor : .secondary)
+                                                        .padding(.horizontal, 7)
+                                                        .padding(.vertical, 2)
+                                                        .background(
+                                                            Capsule()
+                                                                .fill(taken ? accentColor.opacity(0.16) : Color(.systemBackground))
+                                                        )
+                                                }
+                                            }
+                                            .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(allTaken ? accentColor.opacity(0.10) : Color(.tertiarySystemGroupedBackground))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(allTaken ? accentColor.opacity(0.45) : Color.secondary.opacity(0.15), lineWidth: 1)
+                        )
                     }
                 }
             }
@@ -263,7 +475,7 @@ public struct SummaryView: View {
         .appCard()
     }
 
-    // MARK: - 4. 主要バイタルセクション
+    // MARK: - 5. 主要バイタルセクション
     private var vitalsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -277,7 +489,7 @@ public struct SummaryView: View {
 
                 if !healthKit.isAuthorized {
                     Button(action: {
-                        Task { await healthKit.requestAuthorization() }
+                        Task { _ = await healthKit.requestAuthorization() }
                     }) {
                         Text("連携する")
                             .font(.system(size: 12, weight: .bold))
@@ -334,7 +546,7 @@ public struct SummaryView: View {
     private func refreshData() {
         Task {
             if healthKit.isAvailable {
-                await healthKit.fetchTodayVitals()
+                await healthKit.ensureBodyMetricsAuthorizationAndFetch()
             }
             syncToWidget()
         }

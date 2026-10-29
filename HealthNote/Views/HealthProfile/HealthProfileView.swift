@@ -20,16 +20,21 @@ public struct HealthProfileView: View {
     @Query(sort: \HealthCheckRecord.examDate, order: .reverse) private var healthChecks: [HealthCheckRecord]
     @Query(sort: \MedicalExpenseRecord.paymentDate, order: .reverse) private var medicalExpenses: [MedicalExpenseRecord]
 
+    @StateObject private var healthKit = HealthKitManager.shared
+
     @State private var selectedSubTab: ProfileSubTab = .basic
 
     // 基本カルテ編集ステート（目標設定なし）
     @State private var nickname: String = ""
     @State private var birthDate: Date = Calendar.current.date(byAdding: .year, value: -30, to: Date()) ?? Date()
     @State private var hasBirthDate: Bool = false
+    @State private var ageStr: String = ""
     @State private var genderRaw: String = "未設定"
     @State private var heightCm: Double = 170.0
     @State private var weightKg: Double = 65.0
+    @State private var bodyFatStr: String = ""
     @State private var activityLevel: ActivityLevel = .moderate
+    @State private var didUserManuallyEditBodyMetricsInSession: Bool = false
 
     // 簡易問診票
     @State private var medicalHistory: String = ""
@@ -37,18 +42,13 @@ public struct HealthProfileView: View {
     @State private var dietaryRestrictions: String = ""
     @State private var healthCheckMemo: String = ""
 
-    // 服薬追加用シート
-    @State private var showingAddMedication: Bool = false
-    @State private var newMedName: String = ""
-    @State private var newMedTiming: String = "朝"
-    @State private var newMedDosage: String = "1錠"
-
-    // 健診・検査結果 ＆ 医療費モーダル制御
+    // 健診・検査結果 ＆ 医療費モーダル・期間制御
     @State private var showingAddHealthCheck: Bool = false
     @State private var editingHealthCheck: HealthCheckRecord? = nil
     @State private var showingAddMedicalExpense: Bool = false
     @State private var editingMedicalExpense: MedicalExpenseRecord? = nil
     @State private var selectedExpenseYear: Int = Calendar.current.component(.year, from: Date())
+    @AppStorage("medicalExpenseStartMonth") private var expenseStartMonth: Int = 1 // デフォルト: 1月開始
 
     // 変更検知フラグ（基本カルテ用）
     @State private var hasChanges: Bool = false
@@ -80,21 +80,31 @@ public struct HealthProfileView: View {
                     .background(Color(.secondarySystemGroupedBackground))
                     .overlay(Divider(), alignment: .bottom)
 
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            switch selectedSubTab {
-                            case .basic:
-                                basicProfileContent
-                            case .healthCheck:
-                                healthCheckContent
-                            case .medicalExpense:
-                                medicalExpenseContent
-                            }
+                    ScrollViewReader { scrollProxy in
+                        ScrollView {
+                            VStack(spacing: 20) {
+                                switch selectedSubTab {
+                                case .basic:
+                                    basicProfileContent
+                                case .healthCheck:
+                                    healthCheckContent
+                                case .medicalExpense:
+                                    medicalExpenseContent
+                                }
 
-                            Spacer().frame(height: isFloatingSaveVisible ? 84 : 28)
+                                Spacer().frame(height: isFloatingSaveVisible ? 84 : 28)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
+                        .onReceive(NotificationCenter.default.publisher(for: .openProfileMedicationSection)) { _ in
+                            selectedSubTab = .basic
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                withAnimation(.easeInOut(duration: 0.35)) {
+                                    scrollProxy.scrollTo("medication_management_section", anchor: .top)
+                                }
+                            }
+                        }
                     }
                 }
                 .background(Color(.systemGroupedBackground).ignoresSafeArea())
@@ -112,9 +122,6 @@ public struct HealthProfileView: View {
             }
             .navigationTitle("マイカルテ")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingAddMedication) {
-                addMedicationSheet
-            }
             .sheet(isPresented: $showingAddHealthCheck) {
                 HealthCheckEditorSheet(recordToEdit: nil)
             }
@@ -131,11 +138,21 @@ public struct HealthProfileView: View {
                 if !isLoaded {
                     loadInitialData()
                 }
+                Task {
+                    await healthKit.ensureBodyMetricsAuthorizationAndFetch()
+                    applyHealthKitBodyMetricsIfAvailable(force: false)
+                }
             }
             .onChange(of: profiles.first?.id) { _, _ in
                 if !hasChanges {
                     loadInitialData()
                 }
+            }
+            .onChange(of: healthKit.vitals.latestWeightKg) { _, _ in
+                applyHealthKitBodyMetricsIfAvailable(force: false)
+            }
+            .onChange(of: healthKit.vitals.latestBodyFatPercentage) { _, _ in
+                applyHealthKitBodyMetricsIfAvailable(force: false)
             }
         }
     }
@@ -149,6 +166,7 @@ public struct HealthProfileView: View {
         basicInfoSection
         medicalSurveySection
         medicationSection
+            .id("medication_management_section")
     }
 
     private var summaryCard: some View {
@@ -161,15 +179,31 @@ public struct HealthProfileView: View {
             default: return "肥満 (2度以上)"
             }
         }()
+        let parsedAge = Int(ageStr.trimmingCharacters(in: .whitespaces))
+        let parsedBodyFat = Double(bodyFatStr.trimmingCharacters(in: .whitespaces))
 
         return HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(nickname.isEmpty ? "あなた" : nickname)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.primary)
+                HStack(spacing: 8) {
+                    Text(nickname.isEmpty ? "あなた" : nickname)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
 
-                Text("身長 \(String(format: "%.1f", heightCm)) cm ・ 体重 \(String(format: "%.1f", weightKg)) kg")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    if let age = parsedAge, age > 0 {
+                        Text("\(age)歳")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.blue.opacity(0.12)))
+                    }
+                }
+
+                let bodyFatText = (parsedBodyFat != nil && parsedBodyFat! > 0)
+                    ? " ・ 体脂肪 \(String(format: "%.1f", parsedBodyFat!))%"
+                    : ""
+                Text("身長 \(String(format: "%.1f", heightCm)) cm ・ 体重 \(String(format: "%.1f", weightKg)) kg\(bodyFatText)")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundColor(.secondary)
             }
 
@@ -202,7 +236,30 @@ public struct HealthProfileView: View {
 
     private var basicInfoSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(title: "基本プロフィール", icon: "person.text.rectangle.fill", color: .blue)
+            HStack {
+                sectionHeader(title: "基本プロフィール", icon: "person.text.rectangle.fill", color: .blue)
+                Spacer()
+                if healthKit.isAvailable {
+                    Button(action: {
+                        Task {
+                            _ = await healthKit.requestAuthorization()
+                            applyHealthKitBodyMetricsIfAvailable(force: true)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.pink)
+                            Text("ヘルスケア同期")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(AppTheme.emerald)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(AppTheme.emerald.opacity(0.12)))
+                    }
+                }
+            }
 
             VStack(spacing: 12) {
                 HStack {
@@ -212,6 +269,20 @@ public struct HealthProfileView: View {
                     TextField("ニックネーム", text: $nickname)
                         .multilineTextAlignment(.trailing)
                         .onChange(of: nickname) { _, _ in markChanged() }
+                }
+
+                Divider()
+
+                HStack {
+                    Text("年齢")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    TextField("未設定", text: $ageStr)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                        .onChange(of: ageStr) { _, _ in markChanged() }
+                    Text("歳").foregroundColor(.secondary)
                 }
 
                 Divider()
@@ -247,15 +318,53 @@ public struct HealthProfileView: View {
                 Divider()
 
                 HStack {
-                    Text("現在の体重")
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("現在の体重")
+                            .foregroundColor(.secondary)
+                        if healthKit.vitals.latestWeightKg != nil {
+                            Label("iOSヘルスケア連携中（手入力も可）", systemImage: "heart.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.pink)
+                        }
+                    }
                     Spacer()
                     TextField("65.0", value: $weightKg, format: .number.precision(.fractionLength(1)))
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
-                        .onChange(of: weightKg) { _, _ in markChanged() }
+                        .onChange(of: weightKg) { _, _ in
+                            if isLoaded {
+                                didUserManuallyEditBodyMetricsInSession = true
+                                markChanged()
+                            }
+                        }
                     Text("kg").foregroundColor(.secondary)
+                }
+
+                Divider()
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("体脂肪率")
+                            .foregroundColor(.secondary)
+                        if healthKit.vitals.latestBodyFatPercentage != nil {
+                            Label("iOSヘルスケア連携中（手入力も可）", systemImage: "heart.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.pink)
+                        }
+                    }
+                    Spacer()
+                    TextField("未設定", text: $bodyFatStr)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                        .onChange(of: bodyFatStr) { _, _ in
+                            if isLoaded {
+                                didUserManuallyEditBodyMetricsInSession = true
+                                markChanged()
+                            }
+                        }
+                    Text("%").foregroundColor(.secondary)
                 }
 
                 Divider()
@@ -329,61 +438,156 @@ public struct HealthProfileView: View {
         }
     }
 
+    // MARK: - 服薬・サプリメント管理（個人用アプリUI準拠：薬＆サプリ2系統・複数タイミング・錠/袋/包）
+    private var medicationItemsList: [MedicationItem] {
+        medications.filter { $0.kind == .medication }
+    }
+
+    private var supplementItemsList: [MedicationItem] {
+        medications.filter { $0.kind == .supplement }
+    }
+
     private var medicationSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                sectionHeader(title: "服薬・サプリメント管理", icon: "pills.fill", color: .purple)
-                Spacer()
-                Button(action: { showingAddMedication = true }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(AppTheme.emerald)
+        VStack(alignment: .leading, spacing: 16) {
+            // セクションヘッダーバナー
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.orange.opacity(0.15))
+                        .frame(width: 42, height: 42)
+                    Image(systemName: "pills.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.orange)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("服薬・サプリメント管理")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
+                    Text("薬とサプリメントの飲むタイミング（起床/朝/昼/夜/就寝前）・容量（錠/袋/包）の管理")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .lineSpacing(2)
                 }
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.orange.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                    )
+            )
 
-            VStack(spacing: 8) {
-                if medications.isEmpty {
-                    Text("登録されたサプリメントや服薬はありません。\n右上の「＋」から追加できます。")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.vertical, 12)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    ForEach(medications) { med in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(med.name)
-                                    .font(.system(size: 14, weight: .bold))
-                                HStack(spacing: 6) {
-                                    Text(med.timingRaw)
-                                        .font(.system(size: 11, weight: .medium))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Capsule().fill(Color.purple.opacity(0.12)))
-                                        .foregroundColor(.purple)
+            // 1. 現在の服薬状況（薬の飲むタイミング・容量）
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "pills")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.pink)
+                    Text("現在の服薬状況（薬の飲むタイミング・容量）")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
 
-                                    if !med.dosage.isEmpty {
-                                        Text(med.dosage)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                            }
-                            Spacer()
+                    Spacer()
 
-                            Button(role: .destructive, action: {
-                                modelContext.delete(med)
-                                try? modelContext.save()
-                            }) {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.red.opacity(0.7))
-                            }
+                    Button(action: { addNewMedicationItem(kind: .medication) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("薬を追加")
+                                .font(.system(size: 12, weight: .bold))
                         }
-                        .padding(.vertical, 4)
-                        if med.id != medications.last?.id {
-                            Divider()
+                        .foregroundColor(.pink)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.pink.opacity(0.10)))
+                        .overlay(Capsule().stroke(Color.pink.opacity(0.35), lineWidth: 1))
+                    }
+                }
+
+                if medicationItemsList.isEmpty {
+                    Text("登録されている処方薬・市販薬はありません。「＋ 薬を追加」から登録するとサマリ画面に反映されます。")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(medicationItemsList) { item in
+                            MedicationInlineCardView(
+                                item: item,
+                                accentColor: .orange,
+                                onDelete: {
+                                    modelContext.delete(item)
+                                    try? modelContext.save()
+                                },
+                                onMutate: {
+                                    try? modelContext.save()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .appCard()
+
+            // 2. サプリメント管理（サプリの飲むタイミング・容量）
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(AppTheme.emerald)
+                    Text("サプリメント管理（サプリの飲むタイミング・容量）")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+
+                    Spacer()
+
+                    Button(action: { addNewMedicationItem(kind: .supplement) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("サプリを追加")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .foregroundColor(AppTheme.emerald)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(AppTheme.emerald.opacity(0.12)))
+                        .overlay(Capsule().stroke(AppTheme.emerald.opacity(0.4), lineWidth: 1))
+                    }
+                }
+
+                if supplementItemsList.isEmpty {
+                    Text("登録されているサプリメントはありません。「＋ サプリを追加」から登録するとサマリ画面に反映されます。")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(supplementItemsList) { item in
+                            MedicationInlineCardView(
+                                item: item,
+                                accentColor: AppTheme.emerald,
+                                onDelete: {
+                                    modelContext.delete(item)
+                                    try? modelContext.save()
+                                },
+                                onMutate: {
+                                    try? modelContext.save()
+                                }
+                            )
                         }
                     }
                 }
@@ -391,6 +595,22 @@ public struct HealthProfileView: View {
             .padding(16)
             .appCard()
         }
+    }
+
+    private func addNewMedicationItem(kind: MedicationKind) {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        let newItem = MedicationItem(
+            name: "",
+            kind: kind,
+            prescribedDate: kind == .medication ? Date() : nil,
+            timings: [kind == .medication ? .wakeUp : .morning],
+            dosageAmount: "1",
+            dosageUnit: DosageUnitOption.tablet.rawValue,
+            orderIndex: medications.count
+        )
+        modelContext.insert(newItem)
+        try? modelContext.save()
     }
 
     // =========================================================================
@@ -796,11 +1016,33 @@ public struct HealthProfileView: View {
     }
 
     // =========================================================================
-    // MARK: - タブ3：医療費ノート コンテンツ（年間集計・医療費控除目安・領収書AI読取）
+    // MARK: - タブ3：医療費ノート コンテンツ（1月開始 / 4月開始 切替・年間集計・領収書AI読取）
     // =========================================================================
-    private var yearFilteredExpenses: [MedicalExpenseRecord] {
+
+    /// 選択された開始月（1月開始 or 4月開始）に基づく集計期間の開始日と終了日（排他上限）
+    private var expensePeriodBounds: (start: Date, endExclusive: Date) {
         let cal = Calendar.current
-        return medicalExpenses.filter { cal.component(.year, from: $0.paymentDate) == selectedExpenseYear }
+        let startMonth = (expenseStartMonth == 4) ? 4 : 1
+        let start = cal.date(from: DateComponents(year: selectedExpenseYear, month: startMonth, day: 1)) ?? Date()
+        let endExclusive = cal.date(byAdding: .year, value: 1, to: start) ?? Date()
+        return (start, endExclusive)
+    }
+
+    private var periodRangeDisplayText: String {
+        if expenseStartMonth == 4 {
+            return "\(selectedExpenseYear)年度（\(selectedExpenseYear)年4月〜\(selectedExpenseYear + 1)年3月）"
+        } else {
+            return "\(selectedExpenseYear)年（1月〜12月）の医療費"
+        }
+    }
+
+    private var periodShortTitle: String {
+        expenseStartMonth == 4 ? "\(selectedExpenseYear)年度（4月〜翌3月）" : "\(selectedExpenseYear)年（1月〜12月）"
+    }
+
+    private var yearFilteredExpenses: [MedicalExpenseRecord] {
+        let bounds = expensePeriodBounds
+        return medicalExpenses.filter { $0.paymentDate >= bounds.start && $0.paymentDate < bounds.endExclusive }
     }
 
     private var annualTotalYen: Int {
@@ -815,40 +1057,93 @@ public struct HealthProfileView: View {
             .reduce(0) { $0 + $1.amountYen }
     }
 
+    private func switchExpenseStartMonth(to month: Int) {
+        expenseStartMonth = month
+        // 現在の日付が含まれる年/年度へ自然に合わす
+        let cal = Calendar.current
+        let now = Date()
+        let y = cal.component(.year, from: now)
+        let m = cal.component(.month, from: now)
+        if month == 4 && m < 4 {
+            selectedExpenseYear = y - 1
+        } else {
+            selectedExpenseYear = y
+        }
+    }
+
     @ViewBuilder
     private var medicalExpenseContent: some View {
-        // 年セレクター
-        HStack {
-            Button(action: { selectedExpenseYear -= 1 }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.secondary)
-                    .padding(6)
+        // 期間セレクター ＆「1月開始 / 4月開始」切替ボタン（デフォルト: 1月開始）
+        VStack(spacing: 10) {
+            HStack {
+                Button(action: { selectedExpenseYear -= 1 }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(6)
+                }
+                Spacer()
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(AppTheme.emerald)
+                    Text(periodRangeDisplayText)
+                        .font(.system(size: 14, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                Spacer()
+                Button(action: { selectedExpenseYear += 1 }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(6)
+                }
             }
-            Spacer()
-            HStack(spacing: 6) {
-                Image(systemName: "calendar")
-                    .foregroundColor(AppTheme.emerald)
-                Text("\(selectedExpenseYear)年（1月〜12月）の医療費")
-                    .font(.system(size: 15, weight: .bold))
-            }
-            Spacer()
-            Button(action: { selectedExpenseYear += 1 }) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.secondary)
-                    .padding(6)
+
+            // 期間範囲の下に配置する「1月開始 / 4月開始」切替ボタン
+            HStack(spacing: 8) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        switchExpenseStartMonth(to: 1)
+                    }
+                }) {
+                    Text("1月開始")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(expenseStartMonth != 4 ? .white : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule()
+                                .fill(expenseStartMonth != 4 ? AppTheme.emerald : Color(.tertiarySystemGroupedBackground))
+                        )
+                }
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        switchExpenseStartMonth(to: 4)
+                    }
+                }) {
+                    Text("4月開始")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(expenseStartMonth == 4 ? .white : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule()
+                                .fill(expenseStartMonth == 4 ? AppTheme.emerald : Color(.tertiarySystemGroupedBackground))
+                        )
+                }
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .appCard()
 
-        // 年間医療費サマリ ＆ 医療費控除（10万円ライン）進捗カード
+        // 期間医療費サマリ ＆ 医療費控除（10万円ライン）進捗カード
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(selectedExpenseYear)年 自己負担額 合計")
+                    Text("\(periodShortTitle) 自己負担額 合計")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondary)
 
@@ -866,7 +1161,7 @@ public struct HealthProfileView: View {
                     Text("¥\(currentMonthTotalYen.formatted())")
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
-                    Text("年間 \(yearFilteredExpenses.count) 件")
+                    Text("対象期間 \(yearFilteredExpenses.count) 件")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
@@ -950,14 +1245,14 @@ public struct HealthProfileView: View {
 
         // 明細リスト
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader(title: "\(selectedExpenseYear)年の医療費明細", icon: "list.bullet.rectangle.portrait.fill", color: .teal)
+            sectionHeader(title: "\(periodShortTitle)の医療費明細", icon: "list.bullet.rectangle.portrait.fill", color: .teal)
 
             if yearFilteredExpenses.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "yensign.circle")
                         .font(.system(size: 38))
                         .foregroundColor(.secondary.opacity(0.45))
-                    Text("\(selectedExpenseYear)年の医療費記録はまだありません")
+                    Text("\(periodShortTitle)の医療費記録はまだありません")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                 }
@@ -1042,52 +1337,6 @@ public struct HealthProfileView: View {
         .appCard()
     }
 
-    // MARK: - 服薬追加シート
-    private var addMedicationSheet: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text("アイテム情報")) {
-                    TextField("名称（例: マルチビタミン、血圧薬）", text: $newMedName)
-                    Picker("飲むタイミング", selection: $newMedTiming) {
-                        Text("朝").tag("朝")
-                        Text("昼").tag("昼")
-                        Text("夕").tag("夕")
-                        Text("就寝前").tag("就寝前")
-                        Text("随時").tag("随時")
-                    }
-                    TextField("用量・目安（例: 1粒、2錠）", text: $newMedDosage)
-                }
-            }
-            .navigationTitle("服薬・サプリの追加")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") {
-                        showingAddMedication = false
-                        newMedName = ""
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("追加") {
-                        guard !newMedName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                        let newMed = MedicationItem(
-                            name: newMedName.trimmingCharacters(in: .whitespaces),
-                            timingRaw: newMedTiming,
-                            dosage: newMedDosage,
-                            orderIndex: medications.count
-                        )
-                        modelContext.insert(newMed)
-                        try? modelContext.save()
-                        showingAddMedication = false
-                        newMedName = ""
-                    }
-                    .disabled(newMedName.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-
     // MARK: - Helpers
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
         HStack(spacing: 8) {
@@ -1124,16 +1373,30 @@ public struct HealthProfileView: View {
         return diff > 0 ? String(format: "+%.1f", diff) : String(format: "%.1f", diff)
     }
 
-    // MARK: - Data Management & Change Tracking
+    // MARK: - Data Management & HealthKit Body Metrics Sync
     private var hasActualChanges: Bool {
         guard isLoaded else { return false }
         guard let p = activeProfile else {
             return !nickname.isEmpty && nickname != "あなた"
         }
+        let savedAgeStr = (p.age != nil && p.age! > 0) ? "\(p.age!)" : ""
+        let savedBodyFatStr = (p.bodyFatPercentage != nil && p.bodyFatPercentage! > 0)
+            ? String(format: "%.1f", p.bodyFatPercentage!)
+            : ""
+        let currentBodyFatTrimmed = bodyFatStr.trimmingCharacters(in: .whitespaces)
+        let bodyFatDiffers: Bool = {
+            if let cur = Double(currentBodyFatTrimmed), let saved = p.bodyFatPercentage {
+                return abs(cur - saved) > 0.05
+            }
+            return currentBodyFatTrimmed != savedBodyFatStr
+        }()
+
         return nickname != p.nickname
+            || ageStr.trimmingCharacters(in: .whitespaces) != savedAgeStr
             || genderRaw != p.genderRaw
             || abs(heightCm - p.heightCm) > 0.01
             || abs(weightKg - p.weightKg) > 0.01
+            || bodyFatDiffers
             || activityLevel != p.activityLevel
             || medicalHistory != p.medicalHistory
             || allergies != p.allergies
@@ -1157,11 +1420,30 @@ public struct HealthProfileView: View {
 
     private func loadInitialData() {
         isLoaded = false
+        didUserManuallyEditBodyMetricsInSession = false
+
+        // 4月開始設定時に1〜3月であれば対象年度に初期調整
+        let cal = Calendar.current
+        let now = Date()
+        let curYear = cal.component(.year, from: now)
+        let curMonth = cal.component(.month, from: now)
+        if expenseStartMonth == 4 && curMonth < 4 {
+            selectedExpenseYear = curYear - 1
+        } else {
+            selectedExpenseYear = curYear
+        }
+
         if let p = activeProfile {
             nickname = p.nickname
+            ageStr = (p.age != nil && p.age! > 0) ? "\(p.age!)" : ""
             genderRaw = p.genderRaw
             heightCm = p.heightCm
             weightKg = p.weightKg
+            if let bf = p.bodyFatPercentage, bf > 0 {
+                bodyFatStr = String(format: "%.1f", bf)
+            } else {
+                bodyFatStr = ""
+            }
             activityLevel = p.activityLevel
             medicalHistory = p.medicalHistory
             allergies = p.allergies
@@ -1177,15 +1459,88 @@ public struct HealthProfileView: View {
         DispatchQueue.main.async {
             self.isLoaded = true
             self.hasChanges = false
+            self.applyHealthKitBodyMetricsIfAvailable(force: false)
+        }
+    }
+
+    /// iOSヘルスケア連携時に取得した最新の体重・体脂肪率を自動反映（手入力時は手入力を尊重、同期ボタン押下時は強制反映）
+    private func applyHealthKitBodyMetricsIfAvailable(force: Bool) {
+        if !force && (hasChanges || didUserManuallyEditBodyMetricsInSession) {
+            return
+        }
+
+        let p = activeProfile
+        let manualDate = p?.manualBodyMetricsUpdatedAt
+        var didSyncAny = false
+        let prevLoaded = isLoaded
+        isLoaded = false
+
+        if let hkWeight = healthKit.vitals.latestWeightKg, hkWeight > 0 {
+            let hkDate = healthKit.vitals.latestWeightDate ?? Date()
+            if force || manualDate == nil || hkDate >= manualDate! {
+                let rounded = (hkWeight * 10).rounded() / 10.0
+                if abs(weightKg - rounded) > 0.05 {
+                    weightKg = rounded
+                    didSyncAny = true
+                }
+            }
+        }
+
+        if let hkBF = healthKit.vitals.latestBodyFatPercentage, hkBF > 0 {
+            let hkDate = healthKit.vitals.latestBodyFatDate ?? Date()
+            if force || manualDate == nil || hkDate >= manualDate! {
+                let rounded = (hkBF * 10).rounded() / 10.0
+                let formatted = String(format: "%.1f", rounded)
+                if bodyFatStr != formatted {
+                    bodyFatStr = formatted
+                    didSyncAny = true
+                }
+            }
+        }
+
+        if didSyncAny {
+            let profileToSave = activeProfile ?? HealthProfile()
+            profileToSave.weightKg = weightKg
+            if let bfVal = Double(bodyFatStr), bfVal > 0 {
+                profileToSave.bodyFatPercentage = bfVal
+            }
+            if force {
+                profileToSave.manualBodyMetricsUpdatedAt = nil
+            }
+            if activeProfile == nil {
+                modelContext.insert(profileToSave)
+            }
+            try? modelContext.save()
+        }
+
+        DispatchQueue.main.async {
+            self.isLoaded = prevLoaded
+            self.hasChanges = self.hasActualChanges
         }
     }
 
     private func saveChanges() {
         let profileToSave = activeProfile ?? HealthProfile()
         profileToSave.nickname = nickname
+        if let parsedAge = Int(ageStr.trimmingCharacters(in: .whitespaces)), parsedAge > 0 {
+            profileToSave.ageManual = parsedAge
+        } else {
+            profileToSave.ageManual = nil
+        }
         profileToSave.genderRaw = genderRaw
         profileToSave.heightCm = heightCm
         profileToSave.weightKg = weightKg
+
+        if let parsedBF = Double(bodyFatStr.trimmingCharacters(in: .whitespaces)), parsedBF > 0 {
+            profileToSave.bodyFatPercentage = parsedBF
+        } else {
+            profileToSave.bodyFatPercentage = nil
+        }
+
+        if didUserManuallyEditBodyMetricsInSession {
+            profileToSave.manualBodyMetricsUpdatedAt = Date()
+        }
+
         profileToSave.activityLevel = activityLevel
         profileToSave.medicalHistory = medicalHistory
         profileToSave.allergies = allergies
@@ -1199,6 +1554,7 @@ public struct HealthProfileView: View {
         }
 
         try? modelContext.save()
+        didUserManuallyEditBodyMetricsInSession = false
         dismissKeyboard()
 
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -1208,13 +1564,208 @@ public struct HealthProfileView: View {
 }
 
 // =============================================================================
+// MARK: - 服薬・サプリメント インライン編集カード（個人用アプリUI準拠）
+// =============================================================================
+private struct MedicationInlineCardView: View {
+    @Bindable var item: MedicationItem
+    let accentColor: Color
+    let onDelete: () -> Void
+    let onMutate: () -> Void
+
+    @State private var nameInput: String = ""
+    @State private var amountInput: String = "1"
+    @State private var unitSelection: String = DosageUnitOption.tablet.rawValue
+    @State private var prescribedDateValue: Date = Date()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 1段目：薬/サプリ名 ＋（サプリの場合は右端にゴミ箱）
+            HStack(spacing: 10) {
+                TextField(
+                    item.kind == .medication ? "薬の名称（例: チラーヂンS錠100μg）" : "サプリ名（例: DHC ビタミンD）",
+                    text: $nameInput
+                )
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color(.systemBackground))
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+                .onChange(of: nameInput) { _, newVal in
+                    let clean = MedicationItem.sanitizeName(newVal)
+                    if item.name != clean {
+                        item.name = clean
+                        onMutate()
+                    }
+                }
+
+                if item.kind == .supplement {
+                    Button(role: .destructive, action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 15))
+                            .foregroundColor(.secondary)
+                            .padding(8)
+                    }
+                }
+            }
+
+            // 2段目（服薬のみ）：処方日ピッカー ＋ 右端ゴミ箱
+            if item.kind == .medication {
+                HStack(spacing: 8) {
+                    Text("処方日:")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+
+                    DatePicker(
+                        "",
+                        selection: $prescribedDateValue,
+                        displayedComponents: [.date]
+                    )
+                    .labelsHidden()
+                    .environment(\.locale, Locale(identifier: "ja_JP"))
+                    .tint(.orange)
+                    .onChange(of: prescribedDateValue) { _, newDate in
+                        item.prescribedDate = newDate
+                        onMutate()
+                    }
+
+                    Spacer()
+
+                    Button(role: .destructive, action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 15))
+                            .foregroundColor(.secondary)
+                            .padding(6)
+                    }
+                }
+            }
+
+            Divider().opacity(0.6)
+
+            // 3段目：飲むタイミング（起床 / 朝 / 昼 / 夜 / 就寝前 複数選択ピルボタン）
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text("飲むタイミング:")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(DoseTiming.allCases) { timing in
+                                let isSelected = item.hasTiming(timing)
+                                Button(action: {
+                                    let generator = UIImpactFeedbackGenerator(style: .light)
+                                    generator.impactOccurred()
+                                    item.toggleTimingSelection(timing)
+                                    onMutate()
+                                }) {
+                                    Text(timing.rawValue)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(isSelected ? .white : .primary.opacity(0.75))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 7)
+                                        .background(
+                                            Capsule()
+                                                .fill(isSelected ? accentColor : Color(.systemBackground))
+                                        )
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(isSelected ? accentColor : Color.secondary.opacity(0.22), lineWidth: 1)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4段目：容量(1回あたり) 数字 ＋ 単位（錠 / 袋 / 包）
+            HStack(spacing: 10) {
+                Text("容量(1回あたり):")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+
+                TextField("1", text: $amountInput)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .frame(width: 68)
+                    .padding(.vertical, 7)
+                    .background(Color(.systemBackground))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.secondary.opacity(0.22), lineWidth: 1))
+                    .onChange(of: amountInput) { _, newAmt in
+                        item.updateDosage(amount: newAmt, unit: unitSelection)
+                        onMutate()
+                    }
+
+                Menu {
+                    ForEach(DosageUnitOption.allCases) { opt in
+                        Button(action: {
+                            unitSelection = opt.rawValue
+                            item.updateDosage(amount: amountInput, unit: opt.rawValue)
+                            onMutate()
+                        }) {
+                            HStack {
+                                Text(opt.rawValue)
+                                if unitSelection == opt.rawValue {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(unitSelection)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.primary)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Color(.systemBackground))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.secondary.opacity(0.22), lineWidth: 1))
+                }
+
+                Spacer()
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
+                )
+        )
+        .onAppear {
+            nameInput = MedicationItem.sanitizeName(item.name)
+            amountInput = item.dosageAmount.isEmpty ? "1" : item.dosageAmount
+            let validUnits = DosageUnitOption.allCases.map(\.rawValue)
+            unitSelection = validUnits.contains(item.dosageUnit) ? item.dosageUnit : DosageUnitOption.tablet.rawValue
+            prescribedDateValue = item.prescribedDate ?? Date()
+        }
+    }
+}
+
+// =============================================================================
 // MARK: - 健診・検査結果 登録・編集モーダル（全8系統＋自由検査項目追加＋写真AI自動読取）
 // =============================================================================
-private struct HealthCheckEditorSheet: View {
+public struct HealthCheckEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    let recordToEdit: HealthCheckRecord?
+    public let recordToEdit: HealthCheckRecord?
+
+    public init(recordToEdit: HealthCheckRecord? = nil) {
+        self.recordToEdit = recordToEdit
+    }
 
     @State private var examDate: Date = Date()
     @State private var facilityName: String = ""
@@ -1290,7 +1841,7 @@ private struct HealthCheckEditorSheet: View {
     @State private var isAnalyzing: Bool = false
     @State private var alertMessage: String? = nil
 
-    var body: some View {
+    public var body: some View {
         NavigationStack {
             Form {
                 // 1. 写真控え ＆ 任意AI自動読取セクション
@@ -1821,15 +2372,17 @@ private struct HealthCheckEditorSheet: View {
 // =============================================================================
 // MARK: - 医療費ノート 登録・編集モーダル（手入力 ＋ 領収書カメラ/写真 AI読取）
 // =============================================================================
-private struct MedicalExpenseEditorSheet: View {
+public struct MedicalExpenseEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    let recordToEdit: MedicalExpenseRecord?
+    public let recordToEdit: MedicalExpenseRecord?
+    public let initialCategory: MedicalExpenseCategory
+    public let customTitle: String?
 
     @State private var paymentDate: Date = Date()
     @State private var facilityName: String = ""
-    @State private var category: MedicalExpenseCategory = .clinic
+    @State private var category: MedicalExpenseCategory
     @State private var amountStr: String = ""
     @State private var familyMember: String = "本人"
     @State private var memo: String = ""
@@ -1840,7 +2393,18 @@ private struct MedicalExpenseEditorSheet: View {
     @State private var isAnalyzing: Bool = false
     @State private var alertMessage: String? = nil
 
-    var body: some View {
+    public init(
+        recordToEdit: MedicalExpenseRecord? = nil,
+        initialCategory: MedicalExpenseCategory = .clinic,
+        customTitle: String? = nil
+    ) {
+        self.recordToEdit = recordToEdit
+        self.initialCategory = initialCategory
+        self.customTitle = customTitle
+        _category = State(initialValue: recordToEdit?.category ?? initialCategory)
+    }
+
+    public var body: some View {
         NavigationStack {
             Form {
                 // 1. 領収書写真 ＆ 任意AI自動読取
@@ -1971,7 +2535,7 @@ private struct MedicalExpenseEditorSheet: View {
                     }
                 }
             }
-            .navigationTitle(recordToEdit == nil ? "医療費の記録" : "医療費の編集")
+            .navigationTitle(recordToEdit != nil ? "医療費の編集" : (customTitle ?? "医療費の記録"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

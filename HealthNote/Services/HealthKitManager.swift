@@ -2,13 +2,19 @@ import Foundation
 import HealthKit
 import SwiftUI
 
-/// 本日のバイタルデータDTO
+/// 本日のバイタル＆最新体組成データDTO
 public struct DailyVitalData {
     public var stepCount: Double = 0
     public var activeEnergyBurned: Double = 0 // kcal
     public var basalEnergyBurned: Double = 0  // kcal
     public var latestHeartRate: Double? = nil // bpm
     public var sleepHours: Double = 0         // hours
+
+    // マイカルテ連携用の最新体組成データ（HealthKit）
+    public var latestWeightKg: Double? = nil
+    public var latestWeightDate: Date? = nil
+    public var latestBodyFatPercentage: Double? = nil
+    public var latestBodyFatDate: Date? = nil
 
     public var totalEnergyBurned: Double {
         activeEnergyBurned + basalEnergyBurned
@@ -19,13 +25,21 @@ public struct DailyVitalData {
         activeEnergyBurned: Double = 0,
         basalEnergyBurned: Double = 0,
         latestHeartRate: Double? = nil,
-        sleepHours: Double = 0
+        sleepHours: Double = 0,
+        latestWeightKg: Double? = nil,
+        latestWeightDate: Date? = nil,
+        latestBodyFatPercentage: Double? = nil,
+        latestBodyFatDate: Date? = nil
     ) {
         self.stepCount = stepCount
         self.activeEnergyBurned = activeEnergyBurned
         self.basalEnergyBurned = basalEnergyBurned
         self.latestHeartRate = latestHeartRate
         self.sleepHours = sleepHours
+        self.latestWeightKg = latestWeightKg
+        self.latestWeightDate = latestWeightDate
+        self.latestBodyFatPercentage = latestBodyFatPercentage
+        self.latestBodyFatDate = latestBodyFatDate
     }
 }
 
@@ -35,6 +49,7 @@ public final class HealthKitManager: ObservableObject {
     public static let shared = HealthKitManager()
 
     private let healthStore = HKHealthStore()
+    private let bodyMetricsAuthKey = "hkRequestedBodyMetricsAuth_v2"
 
     @Published public var isAuthorized: Bool = false
     @Published public var vitals: DailyVitalData = DailyVitalData()
@@ -48,20 +63,22 @@ public final class HealthKitManager: ObservableObject {
         HKHealthStore.isHealthDataAvailable()
     }
 
-    // MARK: - 権限リクエスト
+    // MARK: - 権限リクエスト（体重・体脂肪率を含む全対象項目）
     public func requestAuthorization() async -> Bool {
         guard isAvailable else {
             errorMessage = "この端末ではAppleヘルスケアが利用できません。"
             return false
         }
 
-        // 読み取り許可リクエスト型
+        // 読み取り許可リクエスト型（歩数・カロリー・心拍・睡眠 ＋ 体重・体脂肪率）
         let readTypes: Set<HKObjectType> = [
             HKObjectType.quantityType(forIdentifier: .stepCount)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
-            HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
+            HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
+            HKObjectType.quantityType(forIdentifier: .bodyMass)!,
+            HKObjectType.quantityType(forIdentifier: .bodyFatPercentage)!
         ]
 
         // 書き込み許可リクエスト型（食事データ）
@@ -74,6 +91,7 @@ public final class HealthKitManager: ObservableObject {
 
         do {
             try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
+            UserDefaults.standard.set(true, forKey: bodyMetricsAuthKey)
             isAuthorized = true
             await fetchTodayVitals()
             return true
@@ -84,7 +102,17 @@ public final class HealthKitManager: ObservableObject {
         }
     }
 
-    // MARK: - 本日のバイタル読み込み
+    /// 既存ユーザーがアップデート後に初めて開いた際にも体重・体脂肪率の読み取り許可シートを確実に表示する
+    public func ensureBodyMetricsAuthorizationAndFetch() async {
+        guard isAvailable else { return }
+        if !UserDefaults.standard.bool(forKey: bodyMetricsAuthKey) {
+            _ = await requestAuthorization()
+        } else {
+            await fetchTodayVitals()
+        }
+    }
+
+    // MARK: - 本日のバイタル ＆ 最新体重・体脂肪率の読み込み
     public func fetchTodayVitals() async {
         guard isAvailable else { return }
         isLoading = true
@@ -98,19 +126,42 @@ public final class HealthKitManager: ObservableObject {
         async let basalCal = fetchSumQuantity(for: .basalEnergyBurned, unit: .kilocalorie(), start: startOfDay, end: now)
         async let heartRate = fetchLatestHeartRate(start: startOfDay, end: now)
         async let sleep = fetchSleepHours(start: Calendar.current.date(byAdding: .day, value: -1, to: startOfDay)!, end: now)
+        async let latestWeight = fetchLatestQuantitySample(for: .bodyMass, unit: .gramUnit(with: .kilo))
+        async let latestBodyFat = fetchLatestQuantitySample(for: .bodyFatPercentage, unit: .percent())
 
         let stepVal = await steps
         let activeVal = await activeCal
         let basalVal = await basalCal
         let hrVal = await heartRate
         let sleepVal = await sleep
+        let weightSample = await latestWeight
+        let bodyFatSample = await latestBodyFat
+
+        // HealthKitのbodyFatPercentageは標準で 0.0〜1.0（例: 0.185 = 18.5%）で格納されるため % 単位へ正規化
+        var normalizedBodyFat: Double? = nil
+        if let rawBF = bodyFatSample?.value, rawBF > 0 {
+            normalizedBodyFat = rawBF <= 1.0 ? (rawBF * 100.0) : rawBF
+        }
+
+        var validWeight: Double? = nil
+        if let rawW = weightSample?.value, rawW > 0 {
+            validWeight = rawW
+        }
+
+        if stepVal > 0 || activeVal > 0 || basalVal > 0 || validWeight != nil || normalizedBodyFat != nil {
+            isAuthorized = true
+        }
 
         self.vitals = DailyVitalData(
             stepCount: stepVal,
             activeEnergyBurned: activeVal,
             basalEnergyBurned: basalVal,
             latestHeartRate: hrVal,
-            sleepHours: sleepVal
+            sleepHours: sleepVal,
+            latestWeightKg: validWeight,
+            latestWeightDate: weightSample?.date,
+            latestBodyFatPercentage: normalizedBodyFat,
+            latestBodyFatDate: bodyFatSample?.date
         )
     }
 
@@ -177,6 +228,31 @@ public final class HealthKitManager: ObservableObject {
             ) { _, result, _ in
                 let value = result?.sumQuantity()?.doubleValue(for: unit) ?? 0
                 continuation.resume(returning: value)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func fetchLatestQuantitySample(
+        for identifier: HKQuantityTypeIdentifier,
+        unit: HKUnit
+    ) async -> (value: Double, date: Date)? {
+        guard let quantityType = HKQuantityType.quantityType(forIdentifier: identifier) else { return nil }
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: quantityType,
+                predicate: nil,
+                limit: 1,
+                sortDescriptors: [sortDescriptor]
+            ) { _, samples, _ in
+                guard let sample = samples?.first as? HKQuantitySample else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let val = sample.quantity.doubleValue(for: unit)
+                continuation.resume(returning: (val, sample.endDate))
             }
             healthStore.execute(query)
         }

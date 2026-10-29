@@ -8,6 +8,10 @@ public enum AppTab: Int {
     case settings = 4
 }
 
+public extension Notification.Name {
+    static let openProfileMedicationSection = Notification.Name("openProfileMedicationSection")
+}
+
 /// メインタブ画面（5タブ ＆ ウィジェットからのディープリンクハンドリング）
 public struct MainTabView: View {
     @State private var selectedTab: AppTab = .summary
@@ -17,11 +21,18 @@ public struct MainTabView: View {
 
     public var body: some View {
         TabView(selection: $selectedTab) {
-            SummaryView()
-                .tabItem {
-                    Label("サマリ", systemImage: "house.fill")
+            SummaryView(
+                onOpenProfileMedicationSettings: {
+                    selectedTab = .profile
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        NotificationCenter.default.post(name: .openProfileMedicationSection, object: nil)
+                    }
                 }
-                .tag(AppTab.summary)
+            )
+            .tabItem {
+                Label("サマリ", systemImage: "house.fill")
+            }
+            .tag(AppTab.summary)
 
             MealsView()
                 .tabItem {

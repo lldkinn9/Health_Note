@@ -80,10 +80,7 @@ public enum ModelContainerFactory {
                 )
                 context.insert(defaultProfile)
 
-                // デフォルトのサプリ・服薬サンプル
-                let sampleMed = MedicationItem(name: "マルチビタミン", timingRaw: "朝", dosage: "1粒")
-                context.insert(sampleMed)
-
+                // デフォルトプロファイルのみ作成（服薬・サプリはマイカルテから自由に追加可能）
                 try? context.save()
             }
         } catch {
@@ -131,10 +128,33 @@ public enum ModelContainerFactory {
         context.insert(meal1)
         context.insert(meal2)
 
-        let med1 = MedicationItem(name: "ビタミンD", timingRaw: "朝", dosage: "1粒", isCompleted: true, lastCompletedDate: Date())
-        let med2 = MedicationItem(name: "整腸剤", timingRaw: "夕", dosage: "2錠", isCompleted: false)
+        let med1 = MedicationItem(
+            name: "チラーヂンS錠50μg",
+            kind: .medication,
+            prescribedDate: Date(),
+            timings: [.wakeUp],
+            dosageAmount: "1",
+            dosageUnit: "錠"
+        )
+        let sup1 = MedicationItem(
+            name: "ビタミンD",
+            kind: .supplement,
+            timings: [.morning],
+            dosageAmount: "1",
+            dosageUnit: "錠",
+            isCompleted: true,
+            lastCompletedDate: Date()
+        )
+        let sup2 = MedicationItem(
+            name: "ビタミンB-MIX",
+            kind: .supplement,
+            timings: [.morning, .night],
+            dosageAmount: "1",
+            dosageUnit: "錠"
+        )
         context.insert(med1)
-        context.insert(med2)
+        context.insert(sup1)
+        context.insert(sup2)
 
         let chat1 = AdvisorChatMessage(role: .assistant, content: "こんにちは！今日の昼食は高タンパクで素晴らしい栄養バランスですね。水分補給も忘れずに行いましょう。")
         context.insert(chat1)
