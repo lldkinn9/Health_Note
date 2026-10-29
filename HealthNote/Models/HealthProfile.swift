@@ -339,6 +339,8 @@ public final class MedicalExpenseRecord: Identifiable {
     public var categoryRaw: String = MedicalExpenseCategory.clinic.rawValue
     public var amountYen: Int = 0
     public var familyMember: String = "本人"
+    /// 診療明細・処方/調剤明細の具体的内容（算定項目・検査・処置・処方薬名・用量・日数など）
+    public var statementDetails: String = ""
     public var memo: String = ""
 
     @Attribute(.externalStorage)
@@ -353,6 +355,7 @@ public final class MedicalExpenseRecord: Identifiable {
         category: MedicalExpenseCategory = .clinic,
         amountYen: Int = 0,
         familyMember: String = "本人",
+        statementDetails: String = "",
         memo: String = "",
         receiptImageData: Data? = nil
     ) {
@@ -362,6 +365,7 @@ public final class MedicalExpenseRecord: Identifiable {
         self.categoryRaw = category.rawValue
         self.amountYen = amountYen
         self.familyMember = familyMember
+        self.statementDetails = statementDetails
         self.memo = memo
         self.receiptImageData = receiptImageData
         self.createdAt = Date()

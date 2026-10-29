@@ -8,6 +8,7 @@ public struct AdvisorView: View {
     @Query private var profiles: [HealthProfile]
     @Query(sort: \Meal.timestamp, order: .forward) private var allMeals: [Meal]
     @Query(sort: \HealthCheckRecord.examDate, order: .reverse) private var healthChecks: [HealthCheckRecord]
+    @Query(sort: \MedicationItem.orderIndex) private var medications: [MedicationItem]
 
     @State private var inputText: String = ""
     @State private var isSending: Bool = false
@@ -139,7 +140,7 @@ public struct AdvisorView: View {
                 .font(.system(size: 16, weight: .bold))
 
             if hasApiKey {
-                Text("マイカルテの身体データや本日の食事記録をもとに、あなたに合った食事バランスや運動のヒントをいつでもアドバイスします。何でもお気軽にご相談ください。")
+                Text("マイカルテの身体データ・服薬/サプリメント状況や本日の食事記録をもとに、あなたに合った食事バランスや生活習慣のヒントをいつでもアドバイスします。何でもお気軽にご相談ください。")
                     .font(.system(size: 13))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -280,7 +281,8 @@ public struct AdvisorView: View {
                     messages: messages + [userMsg],
                     profile: profile,
                     todaysMeals: todaysMeals,
-                    latestHealthCheck: healthChecks.first
+                    latestHealthCheck: healthChecks.first,
+                    medications: medications
                 )
 
                 await MainActor.run {

@@ -137,12 +137,13 @@ public struct HealthCheckAnalysisResult: Codable {
     public let memo: String?
 }
 
-/// 医療費領収書・明細書AI読取結果DTO（個人識別情報を除外した支払情報のみ）
+/// 医療費領収書・診療明細書・調剤明細書AI読取結果DTO（個人識別情報を除外した支払・明細情報）
 public struct MedicalExpenseAnalysisResult: Codable {
-    public let paymentDate: String?    // YYYY-MM-DD
+    public let paymentDate: String?      // YYYY-MM-DD（診療日・調剤日・領収日）
     public let facilityName: String?
     public let category: String?
     public let amountYen: Int?
+    public let statementDetails: String? // 診療明細・処方/調剤明細の具体的内容
     public let memo: String?
 }
 
@@ -491,7 +492,8 @@ public final class GeminiService {
         messages: [AdvisorChatMessage],
         profile: HealthProfile?,
         todaysMeals: [Meal],
-        latestHealthCheck: HealthCheckRecord? = nil
+        latestHealthCheck: HealthCheckRecord? = nil,
+        medications: [MedicationItem] = []
     ) async throws -> String {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
@@ -503,18 +505,47 @@ public final class GeminiService {
         【最重要：医師法・薬機法・医療免責の厳格遵守義務】
         1. 【医師法第17条（医業の独占）の遵守】:
            - あなたは医師や医療従事者ではありません。病気の診断、治療法・処方の指示、病気の治癒に関する判断は一切行ってはなりません。
-           - 「〜の病気です」「〜の疾患の疑いがあります」といった診断的表現、および「この薬を飲んでください」「薬を中止してください」等の投薬指示は絶対禁止です。
+           - 「〜の病気です」「〜の疾患の疑いがあります」といった診断的表現、および「この薬を飲んでください」「薬を増減・中止してください」等の投薬指示は絶対禁止です。
         2. 【医薬品医療機器等法（薬機法）の遵守】:
            - 特定の食品・サプリメント・食材に対し、医薬品的な効能効果（例: 「高血圧が治る」「血糖値が下がる」「脂肪を溶かす」「病気を予防する」等）を断定・標榜してはなりません。
            - 栄養成分の一般的な知見（例: 「ビタミンCは抗酸化作用が知られています」「筋肉の維持にはタンパク質の摂取が推奨されます」等）として言及してください。
+           - 登録されている服薬・サプリメント情報は、栄養素の重複把握や一般的な食品との食べ合わせ上の留意点（例: 一般論としての食品との相性への配慮と、主治医・薬剤師への確認促し）の参考としてのみ活用してください。
         3. 【セーフティガードレール】:
-           - ユーザーが激しい痛み、持病の悪化、体調不良、妊娠・服薬中の懸念を訴えた場合は、いかなる場合でも「直ちに医師や専門医療機関にご相談ください」と受診勧奨を行ってください。
+           - ユーザーが激しい痛み、持病の悪化、体調不良、妊娠・服薬中の懸念や飲み合わせの疑問を訴えた場合は、いかなる場合でも「必ず主治医や薬剤師、専門医療機関にご相談ください」と案内してください。
         4. 【回答スタイル】:
            - 日常生活における健康的な食事の選び方や運動習慣づくりを応援する、温かく親切な日本語で回答してください。
         """
 
         if let profile = profile {
             systemInstruction += "\n\n【ユーザーのカルテ参考情報】\n\(profile.aiContextSummary)"
+        }
+
+        let validMedications = medications.filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if !validMedications.isEmpty {
+            let prescriptionLines = validMedications
+                .filter { $0.kind == .medication }
+                .map { item -> String in
+                    let timingsText = item.selectedTimings.map { timing in
+                        let status = item.isTakenToday(for: timing) ? "済" : "未"
+                        return "\(timing.rawValue)(\(status))"
+                    }.joined(separator: "・")
+                    return "- [処方薬・市販薬] \(item.cleanName) / 1回量: \(item.formattedDosage) / タイミング(本日状況): \(timingsText)"
+                }
+
+            let supplementLines = validMedications
+                .filter { $0.kind == .supplement }
+                .map { item -> String in
+                    let timingsText = item.selectedTimings.map { timing in
+                        let status = item.isTakenToday(for: timing) ? "済" : "未"
+                        return "\(timing.rawValue)(\(status))"
+                    }.joined(separator: "・")
+                    return "- [サプリメント] \(item.cleanName) / 1回量: \(item.formattedDosage) / タイミング(本日状況): \(timingsText)"
+                }
+
+            let allMedLines = (prescriptionLines + supplementLines).joined(separator: "\n")
+            if !allMedLines.isEmpty {
+                systemInstruction += "\n\n【登録中の服薬・サプリメント状況（投薬指示や中止指示は厳禁。栄養重複や一般的な食生活上の配慮の参考としてのみ参照）】\n\(allMedLines)"
+            }
         }
 
         if let hc = latestHealthCheck {
@@ -722,7 +753,7 @@ public final class GeminiService {
         return try JSONDecoder().decode(HealthCheckAnalysisResult.self, from: cleanData)
     }
 
-    // MARK: - 9. 医療費領収書・明細書の画像AI自動読取（OCR補助・個人情報破棄）
+    // MARK: - 9. 医療費領収書・診療明細書・調剤明細書の画像AI自動読取（OCR補助・個人情報破棄）
     public func analyzeMedicalReceiptPhoto(imageData: Data) async throws -> MedicalExpenseAnalysisResult {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
@@ -732,14 +763,19 @@ public final class GeminiService {
         let base64String = optimizedData.base64EncodedString()
 
         let prompt = """
-        添付された病院・クリニック・歯科・調剤薬局の領収書またはレシート画像から、医療費記録に必要な項目のみを読み取って以下のJSON形式のみで出力してください。
+        添付された病院・クリニック・歯科・調剤薬局の「領収書」「診療明細書」「調剤明細書（処方明細書・薬剤情報提供書）」またはレシート画像から、受診・調剤記録に必要な項目を読み取って以下のJSON形式のみで出力してください。
 
-        【厳格なプライバシー保護ルール】
-        - 患者氏名、カルテ番号、保険証記号・番号などの個人識別情報は絶対に抽出・出力しないでください。
-        - `amountYen` には、実際に窓口やレジで支払った「自己負担合計金額（領収金額・税込の整数円）」を入れてください（保険点数そのものではなく円単位の支払額）。
+        【厳格なプライバシー保護・抽出ルール】
+        - 患者氏名、住所、カルテ番号、保険証記号・番号などの個人識別情報（PII）は絶対に抽出・出力しないでください。
+        - `paymentDate` には、書類に記載されている「診療日」「受診日」「調剤日」「処方日」「領収日」「発行日」のいずれかの日付を必ず西暦 `YYYY-MM-DD` 形式に変換して出力してください（例: 令和6年=2024、令和7年=2025、令和8年=2026、`R8.10.29` や `8年10月29日` は `"2026-10-29"`）。日付が全く記載されていない場合のみ `null` にしてください。
+        - `amountYen` には、実際に窓口やレジで支払った「自己負担合計金額（領収金額・請求金額・負担額の税込整数円）」を入れてください（保険点数そのものではなく円単位の支払額。公費負担等で0円と記載されている場合は `0`、金額欄が存在しない明細書単体の場合は `null`）。
         - `category` は以下のいずれか最も近い1つを選んでください:
           "診療・通院", "処方薬・薬局", "歯科", "健診・人間ドック", "市販薬（対象医薬品）", "通院交通費", "その他医療費"
-        - 和暦（令和6年=2024、令和7年=2025、令和8年=2026等）の日付は `YYYY-MM-DD` 形式に変換してください。読み取れない項目は `null` にしてください。
+          （※調剤明細書・薬局領収書・処方薬の明細であれば `"処方薬・薬局"`、医科の診療明細書・病院領収書であれば `"診療・通院"` を選択）
+        - `statementDetails` には、書類に印字されている「診療明細」または「処方・調剤明細」の具体的な項目・内訳を、見やすい箇条書き（改行 `\n` 区切り）で抽出してください：
+          ・診療明細書・領収書の場合：算定されている診療区分・検査名・処置名・画像診断・投薬・点数や項目別の金額など（例: `"・初・再診料（再診料・外来管理加算）\n・検査（血液学的検査・生化学的検査I）\n・投薬（処方箋料）"`）
+          ・調剤明細書・薬剤情報・薬局領収書の場合：調剤された薬品名・規格・用法用量・日数や調剤技術料・薬学管理料など（例: `"・チラーヂンS錠100μg 1回1錠 1日1回起床時（28日分）\n・調剤技術料 / 薬学管理料"`）
+        - `memo` には診療科名（例: `"内科"`、`"皮膚科"`）などの短い補足があれば記載し、なければ `null` にしてください。
 
         出力スキーマ（JSONのみ、Markdownのバッククォート不要）:
         {
@@ -747,6 +783,7 @@ public final class GeminiService {
           "facilityName": "〇〇クリニック",
           "category": "診療・通院",
           "amountYen": 2480,
+          "statementDetails": "・初・再診料（再診料）\n・医学管理等\n・血液検査 / 尿検査\n・処方箋料",
           "memo": "内科受診"
         }
         """

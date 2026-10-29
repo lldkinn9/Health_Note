@@ -56,7 +56,9 @@ public struct HealthProfileView: View {
     @State private var selectedExpenseYear: Int = Calendar.current.component(.year, from: Date())
     @AppStorage("medicalExpenseStartMonth") private var expenseStartMonth: Int = 1 // デフォルト: 1月開始
 
-    // 変更検知フラグ（基本カルテ用）
+    // 変更検知フラグ（基本カルテ・服薬/サプリメント共通）
+    @State private var draftMedications: [MedicationDraft] = []
+    @State private var savedMedicationsSnapshot: [MedicationDraft] = []
     @State private var hasChanges: Bool = false
     @State private var isLoaded: Bool = false
 
@@ -159,6 +161,14 @@ public struct HealthProfileView: View {
             }
             .onChange(of: healthKit.vitals.latestBodyFatPercentage) { _, _ in
                 applyHealthKitBodyMetricsIfAvailable(force: false)
+            }
+            .onChange(of: draftMedications) { _, _ in
+                markChanged()
+            }
+            .onChange(of: medications.map(\.id)) { _, _ in
+                if isLoaded && !hasChanges {
+                    syncDraftMedicationsFromStore()
+                }
             }
         }
     }
@@ -524,13 +534,13 @@ public struct HealthProfileView: View {
         }
     }
 
-    // MARK: - 服薬・サプリメント管理（個人用アプリUI準拠：薬＆サプリ2系統・複数タイミング・錠/袋/包）
-    private var medicationItemsList: [MedicationItem] {
-        medications.filter { $0.kind == .medication }
+    // MARK: - 服薬・サプリメント管理（個人用アプリUI準拠：薬＆サプリ2系統・保存ボタンで一括保存）
+    private var medicationDraftsList: [MedicationDraft] {
+        draftMedications.filter { $0.kind == .medication }
     }
 
-    private var supplementItemsList: [MedicationItem] {
-        medications.filter { $0.kind == .supplement }
+    private var supplementDraftsList: [MedicationDraft] {
+        draftMedications.filter { $0.kind == .supplement }
     }
 
     private var medicationSection: some View {
@@ -580,7 +590,7 @@ public struct HealthProfileView: View {
 
                     Spacer()
 
-                    Button(action: { addNewMedicationItem(kind: .medication) }) {
+                    Button(action: { addNewMedicationDraft(kind: .medication) }) {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
                                 .font(.system(size: 11, weight: .bold))
@@ -595,8 +605,8 @@ public struct HealthProfileView: View {
                     }
                 }
 
-                if medicationItemsList.isEmpty {
-                    Text("登録されている処方薬・市販薬はありません。「＋ 薬を追加」から登録するとサマリ画面に反映されます。")
+                if medicationDraftsList.isEmpty {
+                    Text("登録されている処方薬・市販薬はありません。「＋ 薬を追加」で入力し、下部の保存ボタンを押すとサマリ画面に反映されます。")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .padding(14)
@@ -605,18 +615,16 @@ public struct HealthProfileView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 } else {
                     VStack(spacing: 12) {
-                        ForEach(medicationItemsList) { item in
-                            MedicationInlineCardView(
-                                item: item,
-                                accentColor: .orange,
-                                onDelete: {
-                                    modelContext.delete(item)
-                                    try? modelContext.save()
-                                },
-                                onMutate: {
-                                    try? modelContext.save()
-                                }
-                            )
+                        ForEach(medicationDraftsList) { draft in
+                            if let draftBinding = bindingForMedicationDraft(id: draft.id) {
+                                MedicationInlineCardView(
+                                    draft: draftBinding,
+                                    accentColor: .orange,
+                                    onDelete: {
+                                        removeMedicationDraft(id: draft.id)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -637,7 +645,7 @@ public struct HealthProfileView: View {
 
                     Spacer()
 
-                    Button(action: { addNewMedicationItem(kind: .supplement) }) {
+                    Button(action: { addNewMedicationDraft(kind: .supplement) }) {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
                                 .font(.system(size: 11, weight: .bold))
@@ -652,8 +660,8 @@ public struct HealthProfileView: View {
                     }
                 }
 
-                if supplementItemsList.isEmpty {
-                    Text("登録されているサプリメントはありません。「＋ サプリを追加」から登録するとサマリ画面に反映されます。")
+                if supplementDraftsList.isEmpty {
+                    Text("登録されているサプリメントはありません。「＋ サプリを追加」で入力し、下部の保存ボタンを押すとサマリ画面に反映されます。")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .padding(14)
@@ -662,18 +670,16 @@ public struct HealthProfileView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 } else {
                     VStack(spacing: 12) {
-                        ForEach(supplementItemsList) { item in
-                            MedicationInlineCardView(
-                                item: item,
-                                accentColor: AppTheme.emerald,
-                                onDelete: {
-                                    modelContext.delete(item)
-                                    try? modelContext.save()
-                                },
-                                onMutate: {
-                                    try? modelContext.save()
-                                }
-                            )
+                        ForEach(supplementDraftsList) { draft in
+                            if let draftBinding = bindingForMedicationDraft(id: draft.id) {
+                                MedicationInlineCardView(
+                                    draft: draftBinding,
+                                    accentColor: AppTheme.emerald,
+                                    onDelete: {
+                                        removeMedicationDraft(id: draft.id)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -683,20 +689,49 @@ public struct HealthProfileView: View {
         }
     }
 
-    private func addNewMedicationItem(kind: MedicationKind) {
+    private func bindingForMedicationDraft(id: UUID) -> Binding<MedicationDraft>? {
+        guard draftMedications.contains(where: { $0.id == id }) else { return nil }
+        return Binding(
+            get: {
+                draftMedications.first(where: { $0.id == id }) ?? MedicationDraft(
+                    id: id,
+                    name: "",
+                    kind: .medication,
+                    prescribedDate: MedicationDraft.normalizeDate(Date()),
+                    timings: [.morning],
+                    dosageAmount: "1",
+                    dosageUnit: DosageUnitOption.tablet.rawValue
+                )
+            },
+            set: { updated in
+                if let idx = draftMedications.firstIndex(where: { $0.id == id }) {
+                    draftMedications[idx] = updated
+                }
+            }
+        )
+    }
+
+    private func addNewMedicationDraft(kind: MedicationKind) {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
-        let newItem = MedicationItem(
+        let newDraft = MedicationDraft(
+            id: UUID(),
             name: "",
             kind: kind,
-            prescribedDate: kind == .medication ? Date() : nil,
+            prescribedDate: MedicationDraft.normalizeDate(Date()),
             timings: [kind == .medication ? .wakeUp : .morning],
             dosageAmount: "1",
-            dosageUnit: DosageUnitOption.tablet.rawValue,
-            orderIndex: medications.count
+            dosageUnit: DosageUnitOption.tablet.rawValue
         )
-        modelContext.insert(newItem)
-        try? modelContext.save()
+        draftMedications.append(newDraft)
+        markChanged()
+    }
+
+    private func removeMedicationDraft(id: UUID) {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        draftMedications.removeAll { $0.id == id }
+        markChanged()
     }
 
     // =========================================================================
@@ -1392,6 +1427,15 @@ public struct HealthProfileView: View {
                                         .font(.system(size: 10, weight: .semibold))
                                         .foregroundColor(.indigo)
                                 }
+
+                                let detailPreview = !item.statementDetails.isEmpty ? item.statementDetails : item.memo
+                                if !detailPreview.isEmpty {
+                                    Text(detailPreview)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                }
                             }
 
                             Spacer()
@@ -1467,6 +1511,9 @@ public struct HealthProfileView: View {
     // MARK: - Data Management & HealthKit Body Metrics Sync
     private var hasActualChanges: Bool {
         guard isLoaded else { return false }
+        if draftMedications != savedMedicationsSnapshot {
+            return true
+        }
         guard let p = activeProfile else {
             return !nickname.isEmpty && nickname != "あなた"
         }
@@ -1570,6 +1617,7 @@ public struct HealthProfileView: View {
                 hasBirthDate = true
             }
         }
+        syncDraftMedicationsFromStore()
         hasChanges = false
         dismissKeyboard()
         DispatchQueue.main.async {
@@ -1577,6 +1625,24 @@ public struct HealthProfileView: View {
             self.hasChanges = false
             self.applyHealthKitBodyMetricsIfAvailable(force: false)
         }
+    }
+
+    private func syncDraftMedicationsFromStore() {
+        let validUnits = DosageUnitOption.allCases.map(\.rawValue)
+        let mapped: [MedicationDraft] = medications.map { item in
+            let cleanUnit = validUnits.contains(item.dosageUnit) ? item.dosageUnit : DosageUnitOption.tablet.rawValue
+            return MedicationDraft(
+                id: item.id,
+                name: MedicationItem.sanitizeName(item.name),
+                kind: item.kind,
+                prescribedDate: MedicationDraft.normalizeDate(item.prescribedDate ?? Date()),
+                timings: item.selectedTimings,
+                dosageAmount: item.dosageAmount.isEmpty ? "1" : item.dosageAmount,
+                dosageUnit: cleanUnit
+            )
+        }
+        draftMedications = mapped
+        savedMedicationsSnapshot = mapped
     }
 
     /// iOSヘルスケア連携時に取得した最新の体重・体脂肪率を自動反映（手入力時は手入力を尊重、同期ボタン押下時は強制反映）
@@ -1636,18 +1702,25 @@ public struct HealthProfileView: View {
         }
     }
 
-    private func upsertTodayBodySnapshot(weight: Double, bodyFat: Double?) {
+    private func upsertTodayBodySnapshot(
+        weight: Double,
+        bodyFat: Double?,
+        medicationCompletedOverride: Bool? = nil
+    ) {
         let todayKey = DailyHealthLog.makeDateKey(for: Date())
         if let existing = dailyLogs.first(where: { $0.dateKey == todayKey }) {
             existing.weightKg = weight
             if let bodyFat, bodyFat > 0 {
                 existing.bodyFatPercentage = bodyFat
             }
+            if let medicationCompletedOverride {
+                existing.isMedicationCompleted = medicationCompletedOverride
+            }
             existing.updatedAt = Date()
         } else {
             let log = DailyHealthLog(
                 dateKey: todayKey,
-                isMedicationCompleted: false,
+                isMedicationCompleted: medicationCompletedOverride ?? false,
                 weightKg: weight,
                 bodyFatPercentage: bodyFat
             )
@@ -1698,8 +1771,56 @@ public struct HealthProfileView: View {
             modelContext.insert(profileToSave)
         }
 
-        upsertTodayBodySnapshot(weight: weightKg, bodyFat: profileToSave.bodyFatPercentage)
+        // 服薬・サプリメント編集内容を一括コミット（削除・更新・新規追加）
+        let draftIDSet = Set(draftMedications.map(\.id))
+        for existing in medications where !draftIDSet.contains(existing.id) {
+            modelContext.delete(existing)
+        }
+
+        var committedMedications: [MedicationItem] = []
+        for (idx, draft) in draftMedications.enumerated() {
+            let sanitizedName = MedicationItem.sanitizeName(draft.name).trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolvedTimings = draft.timings.isEmpty ? [DoseTiming.morning] : draft.timings
+            let resolvedAmount = draft.dosageAmount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "1" : draft.dosageAmount.trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolvedUnit = draft.dosageUnit.isEmpty ? DosageUnitOption.tablet.rawValue : draft.dosageUnit
+
+            if let existing = medications.first(where: { $0.id == draft.id }) {
+                existing.name = sanitizedName
+                existing.kind = draft.kind
+                existing.prescribedDate = draft.kind == .medication ? draft.prescribedDate : nil
+                existing.selectedTimings = resolvedTimings
+                existing.updateDosage(amount: resolvedAmount, unit: resolvedUnit)
+                existing.orderIndex = idx
+                committedMedications.append(existing)
+            } else {
+                let newItem = MedicationItem(
+                    id: draft.id,
+                    name: sanitizedName,
+                    kind: draft.kind,
+                    prescribedDate: draft.kind == .medication ? draft.prescribedDate : nil,
+                    timings: resolvedTimings,
+                    dosageAmount: resolvedAmount,
+                    dosageUnit: resolvedUnit,
+                    orderIndex: idx
+                )
+                modelContext.insert(newItem)
+                committedMedications.append(newItem)
+            }
+        }
+
+        // カレンダーの当日服薬完了スタンプも再計算して同期
+        let activeCommitted = committedMedications.filter { !$0.selectedTimings.isEmpty }
+        let isTodayAllTaken = !activeCommitted.isEmpty && activeCommitted.allSatisfy { med in
+            med.selectedTimings.allSatisfy { med.isTakenToday(for: $0) }
+        }
+        upsertTodayBodySnapshot(
+            weight: weightKg,
+            bodyFat: profileToSave.bodyFatPercentage,
+            medicationCompletedOverride: isTodayAllTaken
+        )
+
         try? modelContext.save()
+        syncDraftMedicationsFromStore()
         didUserManuallyEditBodyMetricsInSession = false
         dismissKeyboard()
 
@@ -1710,26 +1831,50 @@ public struct HealthProfileView: View {
 }
 
 // =============================================================================
-// MARK: - 服薬・サプリメント インライン編集カード（個人用アプリUI準拠）
+// MARK: - 服薬・サプリメント 下書きモデル ＆ インライン編集カード（保存ボタンで一括保存）
 // =============================================================================
+fileprivate struct MedicationDraft: Identifiable, Equatable {
+    var id: UUID
+    var name: String
+    var kind: MedicationKind
+    var prescribedDate: Date
+    var timings: [DoseTiming]
+    var dosageAmount: String
+    var dosageUnit: String
+
+    static func normalizeDate(_ date: Date) -> Date {
+        Calendar.current.startOfDay(for: date)
+    }
+
+    func hasTiming(_ timing: DoseTiming) -> Bool {
+        timings.contains(timing)
+    }
+
+    mutating func toggleTiming(_ timing: DoseTiming) {
+        if let idx = timings.firstIndex(of: timing) {
+            timings.remove(at: idx)
+        } else {
+            timings.append(timing)
+        }
+        timings = DoseTiming.allCases.filter { timings.contains($0) }
+    }
+}
+
 private struct MedicationInlineCardView: View {
-    @Bindable var item: MedicationItem
+    @Binding var draft: MedicationDraft
     let accentColor: Color
     let onDelete: () -> Void
-    let onMutate: () -> Void
-
-    @State private var nameInput: String = ""
-    @State private var amountInput: String = "1"
-    @State private var unitSelection: String = DosageUnitOption.tablet.rawValue
-    @State private var prescribedDateValue: Date = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // 1段目：薬/サプリ名 ＋（サプリの場合は右端にゴミ箱）
             HStack(spacing: 10) {
                 TextField(
-                    item.kind == .medication ? "薬の名称（例: チラーヂンS錠100μg）" : "サプリ名（例: DHC ビタミンD）",
-                    text: $nameInput
+                    draft.kind == .medication ? "薬の名称（例: チラーヂンS錠100μg）" : "サプリ名（例: DHC ビタミンD）",
+                    text: Binding(
+                        get: { draft.name },
+                        set: { draft.name = MedicationItem.sanitizeName($0) }
+                    )
                 )
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(.primary)
@@ -1738,15 +1883,8 @@ private struct MedicationInlineCardView: View {
                 .background(Color(.systemBackground))
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(Color.secondary.opacity(0.2), lineWidth: 1))
-                .onChange(of: nameInput) { _, newVal in
-                    let clean = MedicationItem.sanitizeName(newVal)
-                    if item.name != clean {
-                        item.name = clean
-                        onMutate()
-                    }
-                }
 
-                if item.kind == .supplement {
+                if draft.kind == .supplement {
                     Button(role: .destructive, action: onDelete) {
                         Image(systemName: "trash")
                             .font(.system(size: 15))
@@ -1757,7 +1895,7 @@ private struct MedicationInlineCardView: View {
             }
 
             // 2段目（服薬のみ）：処方日ピッカー ＋ 右端ゴミ箱
-            if item.kind == .medication {
+            if draft.kind == .medication {
                 HStack(spacing: 8) {
                     Text("処方日:")
                         .font(.system(size: 12, weight: .semibold))
@@ -1765,16 +1903,15 @@ private struct MedicationInlineCardView: View {
 
                     DatePicker(
                         "",
-                        selection: $prescribedDateValue,
+                        selection: Binding(
+                            get: { draft.prescribedDate },
+                            set: { draft.prescribedDate = MedicationDraft.normalizeDate($0) }
+                        ),
                         displayedComponents: [.date]
                     )
                     .labelsHidden()
                     .environment(\.locale, Locale(identifier: "ja_JP"))
                     .tint(.orange)
-                    .onChange(of: prescribedDateValue) { _, newDate in
-                        item.prescribedDate = newDate
-                        onMutate()
-                    }
 
                     Spacer()
 
@@ -1799,12 +1936,11 @@ private struct MedicationInlineCardView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(DoseTiming.allCases) { timing in
-                                let isSelected = item.hasTiming(timing)
+                                let isSelected = draft.hasTiming(timing)
                                 Button(action: {
                                     let generator = UIImpactFeedbackGenerator(style: .light)
                                     generator.impactOccurred()
-                                    item.toggleTimingSelection(timing)
-                                    onMutate()
+                                    draft.toggleTiming(timing)
                                 }) {
                                     Text(timing.rawValue)
                                         .font(.system(size: 12, weight: .bold))
@@ -1833,7 +1969,7 @@ private struct MedicationInlineCardView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
 
-                TextField("1", text: $amountInput)
+                TextField("1", text: $draft.dosageAmount)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .font(.system(size: 14, weight: .bold, design: .rounded))
@@ -1842,21 +1978,15 @@ private struct MedicationInlineCardView: View {
                     .background(Color(.systemBackground))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(Color.secondary.opacity(0.22), lineWidth: 1))
-                    .onChange(of: amountInput) { _, newAmt in
-                        item.updateDosage(amount: newAmt, unit: unitSelection)
-                        onMutate()
-                    }
 
                 Menu {
                     ForEach(DosageUnitOption.allCases) { opt in
                         Button(action: {
-                            unitSelection = opt.rawValue
-                            item.updateDosage(amount: amountInput, unit: opt.rawValue)
-                            onMutate()
+                            draft.dosageUnit = opt.rawValue
                         }) {
                             HStack {
                                 Text(opt.rawValue)
-                                if unitSelection == opt.rawValue {
+                                if draft.dosageUnit == opt.rawValue {
                                     Image(systemName: "checkmark")
                                 }
                             }
@@ -1864,7 +1994,7 @@ private struct MedicationInlineCardView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(unitSelection)
+                        Text(draft.dosageUnit)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(.primary)
                         Image(systemName: "chevron.up.chevron.down")
@@ -1890,13 +2020,6 @@ private struct MedicationInlineCardView: View {
                         .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
                 )
         )
-        .onAppear {
-            nameInput = MedicationItem.sanitizeName(item.name)
-            amountInput = item.dosageAmount.isEmpty ? "1" : item.dosageAmount
-            let validUnits = DosageUnitOption.allCases.map(\.rawValue)
-            unitSelection = validUnits.contains(item.dosageUnit) ? item.dosageUnit : DosageUnitOption.tablet.rawValue
-            prescribedDateValue = item.prescribedDate ?? Date()
-        }
     }
 }
 
@@ -2531,6 +2654,7 @@ public struct MedicalExpenseEditorSheet: View {
     @State private var category: MedicalExpenseCategory
     @State private var amountStr: String = ""
     @State private var familyMember: String = "本人"
+    @State private var statementDetails: String = ""
     @State private var memo: String = ""
 
     @State private var photoItem: PhotosPickerItem? = nil
@@ -2538,6 +2662,15 @@ public struct MedicalExpenseEditorSheet: View {
     @State private var showingCamera: Bool = false
     @State private var isAnalyzing: Bool = false
     @State private var alertMessage: String? = nil
+
+    private var canSaveExpense: Bool {
+        let digits = amountStr.filter { $0.isNumber }
+        if let yen = Int(digits), yen > 0 { return true }
+        if !facilityName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        if !statementDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        if !memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        return false
+    }
 
     public init(
         recordToEdit: MedicalExpenseRecord? = nil,
@@ -2609,10 +2742,10 @@ public struct MedicalExpenseEditorSheet: View {
                                     Spacer()
                                     if isAnalyzing {
                                         ProgressView().tint(.white)
-                                        Text("領収書を読み取り中...")
+                                        Text("書類を読み取り中...")
                                             .font(.system(size: 13, weight: .bold))
                                     } else {
-                                        Label("領収書から金額・病院名をAI自動入力", systemImage: "sparkles")
+                                        Label("書類から日付・金額・明細をAI自動入力", systemImage: "sparkles")
                                             .font(.system(size: 14, weight: .bold))
                                     }
                                     Spacer()
@@ -2661,8 +2794,16 @@ public struct MedicalExpenseEditorSheet: View {
                     }
                 }
 
+                Section(
+                    header: Text("診療明細・処方明細の内容"),
+                    footer: Text("診療項目・検査内容・処方薬の名称や用量などが記録され、受診日のカレンダー詳細にも金額とあわせて表示されます。")
+                ) {
+                    TextField("例：・再診料 / 血液検査\n・チラーヂンS錠100μg 1回1錠 28日分", text: $statementDetails, axis: .vertical)
+                        .lineLimit(3...8)
+                }
+
                 Section(header: Text("メモ")) {
-                    TextField("診療科・処方内容・通院経路など（任意）", text: $memo)
+                    TextField("診療科・通院経路などの補足メモ（任意）", text: $memo)
                 }
 
                 if let existing = recordToEdit {
@@ -2689,7 +2830,7 @@ public struct MedicalExpenseEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { saveExpense() }
-                        .disabled((Int(amountStr) ?? 0) <= 0 || isAnalyzing)
+                        .disabled(!canSaveExpense || isAnalyzing)
                 }
             }
             .onAppear { populateIfEditing() }
@@ -2730,8 +2871,9 @@ public struct MedicalExpenseEditorSheet: View {
         paymentDate = r.paymentDate
         facilityName = r.facilityName
         category = r.category
-        amountStr = r.amountYen > 0 ? "\(r.amountYen)" : ""
+        amountStr = r.amountYen > 0 ? "\(r.amountYen)" : (r.facilityName.isEmpty && r.statementDetails.isEmpty ? "" : "0")
         familyMember = r.familyMember
+        statementDetails = r.statementDetails
         memo = r.memo
         receiptData = r.receiptImageData
     }
@@ -2743,13 +2885,24 @@ public struct MedicalExpenseEditorSheet: View {
             do {
                 let res = try await GeminiService.shared.analyzeMedicalReceiptPhoto(imageData: data)
                 await MainActor.run {
-                    if let dStr = res.paymentDate, let parsed = parseISODate(dStr) { paymentDate = parsed }
-                    if let fac = res.facilityName, !fac.isEmpty { facilityName = fac }
+                    if let dStr = res.paymentDate, let parsed = parseISODate(dStr) {
+                        paymentDate = parsed
+                    }
+                    if let fac = res.facilityName, !fac.isEmpty {
+                        facilityName = fac
+                    }
                     if let catStr = res.category, let matched = MedicalExpenseCategory(rawValue: catStr) {
                         category = matched
                     }
-                    if let amt = res.amountYen, amt > 0 { amountStr = "\(amt)" }
-                    if let m = res.memo, !m.isEmpty, memo.isEmpty { memo = m }
+                    if let amt = res.amountYen, amt >= 0 {
+                        amountStr = "\(amt)"
+                    }
+                    if let details = res.statementDetails?.trimmingCharacters(in: .whitespacesAndNewlines), !details.isEmpty {
+                        statementDetails = details
+                    }
+                    if let m = res.memo?.trimmingCharacters(in: .whitespacesAndNewlines), !m.isEmpty, memo.isEmpty {
+                        memo = m
+                    }
                     isAnalyzing = false
                 }
             } catch {
@@ -2762,8 +2915,9 @@ public struct MedicalExpenseEditorSheet: View {
     }
 
     private func saveExpense() {
+        guard canSaveExpense else { return }
         let cleanDigits = amountStr.filter { $0.isNumber }
-        guard let yen = Int(cleanDigits), yen > 0 else { return }
+        let yen = max(0, Int(cleanDigits) ?? 0)
 
         let target = recordToEdit ?? MedicalExpenseRecord()
         target.paymentDate = paymentDate
@@ -2771,7 +2925,8 @@ public struct MedicalExpenseEditorSheet: View {
         target.category = category
         target.amountYen = yen
         target.familyMember = familyMember
-        target.memo = memo
+        target.statementDetails = statementDetails.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.memo = memo.trimmingCharacters(in: .whitespacesAndNewlines)
         target.receiptImageData = receiptData
 
         if recordToEdit == nil {
@@ -2782,16 +2937,39 @@ public struct MedicalExpenseEditorSheet: View {
     }
 }
 
-// MARK: - 日付パース ＆ カメラピッカー共通ヘルパー
+// MARK: - 日付パース（西暦・スラッシュ・日本語表記・和暦対応）＆ カメラピッカー共通ヘルパー
 private func parseISODate(_ raw: String) -> Date? {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+
+    let posixFormats = [
+        "yyyy-MM-dd",
+        "yyyy/MM/dd",
+        "yyyy.MM.dd",
+        "yyyy年M月d日",
+        "yyyy年MM月dd日"
+    ]
     let f = DateFormatter()
     f.locale = Locale(identifier: "en_US_POSIX")
-    f.dateFormat = "yyyy-MM-dd"
-    if let d = f.date(from: raw.trimmingCharacters(in: .whitespacesAndNewlines)) {
-        return d
+    f.calendar = Calendar(identifier: .gregorian)
+    for fmt in posixFormats {
+        f.dateFormat = fmt
+        if let d = f.date(from: trimmed) {
+            return d
+        }
     }
-    f.dateFormat = "yyyy/MM/dd"
-    return f.date(from: raw.trimmingCharacters(in: .whitespacesAndNewlines))
+
+    // 和暦（令和 / R 等）のフォールバックパース
+    let jpFormatter = DateFormatter()
+    jpFormatter.locale = Locale(identifier: "ja_JP_TRADITIONAL")
+    jpFormatter.calendar = Calendar(identifier: .japanese)
+    for fmt in ["Gy年M月d日", "GGy年M月d日", "GGyy.M.d", "Gyy.M.d", "Gyy/M/d"] {
+        jpFormatter.dateFormat = fmt
+        if let d = jpFormatter.date(from: trimmed) {
+            return d
+        }
+    }
+    return nil
 }
 
 private struct ProfileCameraPicker: UIViewControllerRepresentable {

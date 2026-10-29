@@ -21,7 +21,6 @@ public struct AddMealView: View {
     @State private var selectedImageData: Data? = nil
     @State private var showingCamera: Bool = false
     @State private var isAnalyzing: Bool = false
-    @State private var analysisAdvice: String? = nil
     @State private var errorMessage: String? = nil
 
     // 食品辞書・過去履歴ピッカー
@@ -85,7 +84,6 @@ public struct AddMealView: View {
                                 Button(action: {
                                     self.selectedImageData = nil
                                     self.selectedPhotoItem = nil
-                                    self.analysisAdvice = nil
                                 }) {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.system(size: 22))
@@ -143,18 +141,7 @@ public struct AddMealView: View {
                             .disabled(isAnalyzing)
                         }
 
-                        if let analysisAdvice {
-                            HStack(alignment: .top, spacing: 6) {
-                                Image(systemName: "sparkles")
-                                    .foregroundColor(.indigo)
-                                Text(analysisAdvice)
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(8)
-                            .background(Color.indigo.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else if selectedImageData != nil && GeminiService.shared.getApiKey() == nil {
+                        if selectedImageData != nil && GeminiService.shared.getApiKey() == nil {
                             Text("※本機能（写真からの自動解析）はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。未設定のままでも下部から手動または食品辞書で記録できます。")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
@@ -314,7 +301,6 @@ public struct AddMealView: View {
                     self.protein = result.protein
                     self.fat = result.fat
                     self.carbs = result.carbs
-                    self.analysisAdvice = result.advice
                     self.isAnalyzing = false
                 }
             } catch {

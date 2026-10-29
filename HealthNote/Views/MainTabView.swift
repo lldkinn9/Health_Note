@@ -613,8 +613,10 @@ public struct CalendarView: View {
 
             Divider()
 
-            // C. 受診内容（診療明細・調剤明細・健診/検査結果）
+            // C. 受診内容（診療明細・処方/調剤明細・健診/検査結果）
             VStack(alignment: .leading, spacing: 10) {
+                let dayTotalYen = dayExpenses.reduce(0) { $0 + $1.amountYen }
+
                 HStack(spacing: 6) {
                     Image(systemName: "stethoscope")
                         .font(.system(size: 13, weight: .bold))
@@ -622,6 +624,17 @@ public struct CalendarView: View {
                     Text("受診・診療・検査内容（\(dayExpenses.count + dayChecks.count)件）")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.primary)
+
+                    Spacer()
+
+                    if !dayExpenses.isEmpty {
+                        Text("合計 ¥\(dayTotalYen.formatted())")
+                            .font(.system(size: 12, weight: .black, design: .rounded))
+                            .foregroundColor(.teal)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color.cyan.opacity(0.14)))
+                    }
                 }
 
                 if dayExpenses.isEmpty && dayChecks.isEmpty {
@@ -633,60 +646,99 @@ public struct CalendarView: View {
                         .background(Color(.tertiarySystemGroupedBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
-                    VStack(spacing: 8) {
-                        // 診療明細・調剤明細など医療費レコード
+                    VStack(spacing: 10) {
+                        // 診療明細・処方/調剤明細など医療費レコード
                         ForEach(dayExpenses) { exp in
                             Button(action: { editingExpense = exp }) {
-                                HStack(spacing: 10) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.cyan.opacity(0.14))
-                                            .frame(width: 40, height: 40)
-                                        Image(systemName: exp.category.iconName)
-                                            .font(.system(size: 16, weight: .semibold))
-                                            .foregroundColor(.teal)
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        HStack(spacing: 6) {
-                                            Text(exp.category.rawValue)
-                                                .font(.system(size: 10, weight: .bold))
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(spacing: 10) {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(Color.cyan.opacity(0.14))
+                                                .frame(width: 40, height: 40)
+                                            Image(systemName: exp.category.iconName)
+                                                .font(.system(size: 16, weight: .semibold))
                                                 .foregroundColor(.teal)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 1)
-                                                .background(Capsule().fill(Color.cyan.opacity(0.14)))
-
-                                            Text(exp.familyMember)
-                                                .font(.system(size: 10, weight: .semibold))
-                                                .foregroundColor(.indigo)
                                         }
 
-                                        Text(exp.facilityName.isEmpty ? exp.category.rawValue : exp.facilityName)
-                                            .font(.system(size: 13.5, weight: .bold))
-                                            .foregroundColor(.primary)
-                                            .multilineTextAlignment(.leading)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            HStack(spacing: 6) {
+                                                Text(exp.category.rawValue)
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.teal)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 1)
+                                                    .background(Capsule().fill(Color.cyan.opacity(0.14)))
 
-                                        if !exp.memo.isEmpty {
-                                            Text(exp.memo)
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(2)
+                                                Text(exp.familyMember)
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundColor(.indigo)
+
+                                                if exp.receiptImageData != nil {
+                                                    Image(systemName: "paperclip")
+                                                        .font(.system(size: 10, weight: .semibold))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+
+                                            Text(exp.facilityName.isEmpty ? exp.category.rawValue : exp.facilityName)
+                                                .font(.system(size: 14, weight: .bold))
+                                                .foregroundColor(.primary)
                                                 .multilineTextAlignment(.leading)
                                         }
+
+                                        Spacer()
+
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text("支払額")
+                                                .font(.system(size: 9.5, weight: .semibold))
+                                                .foregroundColor(.secondary)
+                                            HStack(spacing: 4) {
+                                                Text("¥\(exp.amountYen.formatted())")
+                                                    .font(.system(size: 15, weight: .black, design: .rounded))
+                                                    .foregroundColor(.primary)
+                                                Image(systemName: "chevron.right")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
                                     }
 
-                                    Spacer()
+                                    // 診療明細・処方明細の具体的内容を表示
+                                    if !exp.statementDetails.isEmpty {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(exp.category == .pharmacy ? "処方・調剤明細" : "診療明細・内訳")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.teal)
 
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text("¥\(exp.amountYen.formatted())")
-                                            .font(.system(size: 14, weight: .black, design: .rounded))
-                                            .foregroundColor(.primary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(.secondary)
+                                            Text(exp.statementDetails)
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.primary.opacity(0.9))
+                                                .lineSpacing(3)
+                                                .multilineTextAlignment(.leading)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                        .padding(9)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(Color(.systemBackground).opacity(0.8))
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    }
+
+                                    if !exp.memo.isEmpty {
+                                        HStack(alignment: .top, spacing: 4) {
+                                            Image(systemName: "note.text")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.secondary)
+                                                .padding(.top, 2)
+                                            Text(exp.memo)
+                                                .font(.system(size: 11.5))
+                                                .foregroundColor(.secondary)
+                                                .multilineTextAlignment(.leading)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
                                     }
                                 }
-                                .padding(10)
+                                .padding(11)
                                 .background(Color(.tertiarySystemGroupedBackground))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
