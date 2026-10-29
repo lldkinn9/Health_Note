@@ -261,7 +261,7 @@ public struct SettingsView: View {
                     showingFinalResetAlert = true
                 }
             } message: {
-                Text("食事ログ、マイカルテ、健診結果、医療費ノート、服薬管理、チャット履歴を含むすべてのデータが削除されます。この操作は取り消せません。")
+                Text("食事ログ、マイカルテ、健診・検査結果、医療費ノート、服薬管理、チャット履歴を含むすべてのデータが削除されます。この操作は取り消せません。")
             }
             .alert("最終確認：本当に初期化しますか？", isPresented: $showingFinalResetAlert) {
                 Button("キャンセル", role: .cancel) {}
@@ -377,7 +377,7 @@ public struct SettingsView: View {
                     体調に異変や痛みを感じた場合、既存の疾患・持病をお持ちの場合、妊娠中または服薬中の方は、自己判断を行わず、必ず主治医や専門医療機関に直接ご相談ください。
 
                     4. 【自己責任による健康管理】:
-                    本アプリで提示される栄養目標や推定値は一般的な成人向けの参考指標です。ご自身の体調に合わせて無理のない範囲でご活用ください。
+                    本アプリで提示される栄養指標や推定値は一般的な成人向けの参考情報です。ご自身の体調に合わせて無理のない範囲でご活用ください。
                     """)
                     .font(.system(size: 13))
                     .lineSpacing(5)
@@ -390,7 +390,7 @@ public struct SettingsView: View {
                         Text("5. 【栄養指標・BMI計算式の公的出典（Guideline 1.4.1 準拠）】")
                             .font(.system(size: 14, weight: .bold))
 
-                        Text("本アプリにおけるBMI計算式（体重kg ÷ [身長m]²、普通体重 18.5〜25.0未満）およびPFC栄養バランス・摂取カロリー目標の参考指標は、以下の公的機関が公開する一般的な健康・栄養統計基準に基づいています。")
+                        Text("本アプリにおけるBMI計算式（体重kg ÷ [身長m]²、普通体重 18.5〜25.0未満）およびPFC栄養バランス・摂取カロリー等の参考指標は、以下の公的機関が公開する一般的な健康・栄養統計基準に基づいています。")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                             .lineSpacing(4)

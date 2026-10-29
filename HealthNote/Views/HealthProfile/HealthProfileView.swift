@@ -6,13 +6,13 @@ import UIKit
 /// マイカルテ内の3つのサブタブ
 public enum ProfileSubTab: String, CaseIterable, Identifiable {
     case basic = "基本カルテ"
-    case healthCheck = "健診結果"
+    case healthCheck = "健診・検査結果"
     case medicalExpense = "医療費ノート"
 
     public var id: String { rawValue }
 }
 
-/// 「マイカルテ」画面（基本カルテ / 健診結果記録・比較 / 医療費ノート集計）
+/// 「マイカルテ」画面（基本カルテ / 健診・検査結果 / 医療費ノート）
 public struct HealthProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [HealthProfile]
@@ -22,21 +22,14 @@ public struct HealthProfileView: View {
 
     @State private var selectedSubTab: ProfileSubTab = .basic
 
-    // 基本カルテ編集ステート
+    // 基本カルテ編集ステート（目標設定なし）
     @State private var nickname: String = ""
     @State private var birthDate: Date = Calendar.current.date(byAdding: .year, value: -30, to: Date()) ?? Date()
     @State private var hasBirthDate: Bool = false
     @State private var genderRaw: String = "未設定"
     @State private var heightCm: Double = 170.0
     @State private var weightKg: Double = 65.0
-    @State private var targetWeightKg: Double = 62.0
     @State private var activityLevel: ActivityLevel = .moderate
-
-    // 栄養目標
-    @State private var targetCalories: Double = 2000.0
-    @State private var targetProtein: Double = 75.0
-    @State private var targetFat: Double = 55.0
-    @State private var targetCarbs: Double = 250.0
 
     // 簡易問診票
     @State private var medicalHistory: String = ""
@@ -50,7 +43,7 @@ public struct HealthProfileView: View {
     @State private var newMedTiming: String = "朝"
     @State private var newMedDosage: String = "1錠"
 
-    // 健診結果・医療費モーダル制御
+    // 健診・検査結果 ＆ 医療費モーダル制御
     @State private var showingAddHealthCheck: Bool = false
     @State private var editingHealthCheck: HealthCheckRecord? = nil
     @State private var showingAddMedicalExpense: Bool = false
@@ -75,7 +68,7 @@ public struct HealthProfileView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
-                    // 上部セグメント切替バー（基本カルテ / 健診結果 / 医療費ノート）
+                    // 上部セグメント切替バー（基本カルテ / 健診・検査結果 / 医療費ノート）
                     Picker("表示モード", selection: $selectedSubTab) {
                         ForEach(ProfileSubTab.allCases) { tab in
                             Text(tab.rawValue).tag(tab)
@@ -148,13 +141,12 @@ public struct HealthProfileView: View {
     }
 
     // =========================================================================
-    // MARK: - タブ1：基本カルテ コンテンツ
+    // MARK: - タブ1：基本カルテ コンテンツ（目標設定なし）
     // =========================================================================
     @ViewBuilder
     private var basicProfileContent: some View {
         summaryCard
         basicInfoSection
-        nutritionTargetsSection
         medicalSurveySection
         medicationSection
     }
@@ -176,9 +168,9 @@ public struct HealthProfileView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.primary)
 
-                Text("目標まであと \(String(format: "%.1f", max(0, weightKg - targetWeightKg))) kg")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(AppTheme.emerald)
+                Text("身長 \(String(format: "%.1f", heightCm)) cm ・ 体重 \(String(format: "%.1f", weightKg)) kg")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
@@ -268,20 +260,6 @@ public struct HealthProfileView: View {
 
                 Divider()
 
-                HStack {
-                    Text("目標体重")
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    TextField("62.0", value: $targetWeightKg, format: .number.precision(.fractionLength(1)))
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                        .onChange(of: targetWeightKg) { _, _ in markChanged() }
-                    Text("kg").foregroundColor(.secondary)
-                }
-
-                Divider()
-
                 VStack(alignment: .leading, spacing: 6) {
                     Text("日常の活動レベル")
                         .font(.system(size: 13, weight: .medium))
@@ -294,58 +272,20 @@ public struct HealthProfileView: View {
                     .pickerStyle(.menu)
                     .onChange(of: activityLevel) { _, _ in markChanged() }
                 }
-            }
-            .padding(16)
-            .appCard()
-        }
-    }
-
-    private var nutritionTargetsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(title: "1日の栄養目標（PFCバランス）", icon: "flame.fill", color: .orange)
-
-            VStack(spacing: 14) {
-                HStack {
-                    Text("目標カロリー")
-                        .font(.system(size: 15, weight: .bold))
-                    Spacer()
-                    TextField("2000", value: $targetCalories, format: .number)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
-                        .font(.system(size: 18, weight: .black, design: .rounded))
-                        .foregroundColor(AppTheme.calorieIntake)
-                        .frame(width: 90)
-                        .onChange(of: targetCalories) { _, _ in markChanged() }
-                    Text("kcal").foregroundColor(.secondary)
-                }
 
                 Divider()
 
-                HStack(spacing: 12) {
-                    pfcInputField(label: "P (タンパク質)", value: $targetProtein, color: AppTheme.proteinColor)
-                    pfcInputField(label: "F (脂質)", value: $targetFat, color: AppTheme.fatColor)
-                    pfcInputField(label: "C (炭水化物)", value: $targetCarbs, color: AppTheme.carbsColor)
-                }
-
-                PFCBalanceView(
-                    protein: targetProtein,
-                    fat: targetFat,
-                    carbs: targetCarbs,
-                    compact: true
-                )
-
-                Divider()
-
+                // App Store Guideline 1.4.1 準拠：BMI判定基準の公的出典明記
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("※BMI判定基準（普通体重: 18.5〜25.0未満）およびPFC栄養目標の参考値は、日本肥満学会および厚生労働省「日本人の食事摂取基準」の一般的な統計指標に基づいています（医療上の診断ではありません）。")
+                    Text("※BMI計算式（体重kg ÷ [身長m]²、普通体重: 18.5〜25.0未満）の区分表示は、厚生労働省および日本肥満学会の一般的な統計指標に基づいています（医療上の診断ではありません）。")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                         .lineSpacing(2)
 
-                    Link(destination: URL(string: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html")!) {
+                    Link(destination: URL(string: "https://www.e-healthnet.mhlw.go.jp/information/dictionary/metabolic/ym-002.html")!) {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.up.right.square")
-                            Text("出典：厚生労働省「日本人の食事摂取基準」を確認")
+                            Text("出典：厚生労働省 e-ヘルスネット「BMIの算出と判定基準」")
                                 .underline()
                         }
                         .font(.system(size: 10, weight: .semibold))
@@ -356,25 +296,6 @@ public struct HealthProfileView: View {
             .padding(16)
             .appCard()
         }
-    }
-
-    @ViewBuilder
-    private func pfcInputField(label: String, value: Binding<Double>, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(color)
-            HStack(spacing: 2) {
-                TextField("0", value: value, format: .number)
-                    .keyboardType(.numberPad)
-                    .font(.system(size: 16, weight: .black, design: .rounded))
-                    .onChange(of: value.wrappedValue) { _, _ in markChanged() }
-                Text("g")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var medicalSurveySection: some View {
@@ -388,7 +309,7 @@ public struct HealthProfileView: View {
                 Divider()
                 surveyField(title: "食事の制限・ご要望", placeholder: "例: 減塩、低糖質を意識したい", text: $dietaryRestrictions)
                 Divider()
-                surveyField(title: "健康診断メモ・気になる数値", placeholder: "例: 中性脂肪がやや高めだった", text: $healthCheckMemo)
+                surveyField(title: "健康メモ・気になること", placeholder: "例: 最近少し疲れやすい", text: $healthCheckMemo)
             }
             .padding(16)
             .appCard()
@@ -473,7 +394,7 @@ public struct HealthProfileView: View {
     }
 
     // =========================================================================
-    // MARK: - タブ2：健診結果 コンテンツ（手入力 ＋ 任意AI写真読取 ＋ 前回比較）
+    // MARK: - タブ2：健診・検査結果 コンテンツ（手入力 ＋ 任意AI写真読取 ＋ 前回比較）
     // =========================================================================
     @ViewBuilder
     private var healthCheckContent: some View {
@@ -482,7 +403,7 @@ public struct HealthProfileView: View {
             HStack(spacing: 8) {
                 Image(systemName: "waveform.path.ecg.rectangle.fill")
                     .font(.system(size: 16, weight: .bold))
-                Text("健康診断・検査結果を記録する（手入力 / 写真AI）")
+                Text("健診・検査結果を記録する（手入力 / 写真AI）")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
             }
             .foregroundColor(.white)
@@ -497,9 +418,9 @@ public struct HealthProfileView: View {
             let previous = healthChecks.count >= 2 ? healthChecks[1] : nil
             latestHealthCheckDashboard(latest: latest, previous: previous)
 
-            // 健診履歴リスト
+            // 健診・検査履歴リスト
             VStack(alignment: .leading, spacing: 12) {
-                sectionHeader(title: "記録済みの健診履歴（\(healthChecks.count)回）", icon: "clock.arrow.circlepath", color: .indigo)
+                sectionHeader(title: "記録済みの健診・検査履歴（\(healthChecks.count)回）", icon: "clock.arrow.circlepath", color: .indigo)
 
                 ForEach(healthChecks) { record in
                     Button(action: { editingHealthCheck = record }) {
@@ -557,10 +478,10 @@ public struct HealthProfileView: View {
                 Image(systemName: "waveform.path.ecg.rectangle")
                     .font(.system(size: 42))
                     .foregroundColor(.secondary.opacity(0.45))
-                Text("健康診断の記録がまだありません")
+                Text("健診・検査結果の記録がまだありません")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.primary)
-                Text("定期健康診断や人間ドック・血液検査の数値を記録しておくと、前回との比較や推移をひと目で振り返ることができます。")
+                Text("定期健康診断・人間ドック・病院での血液検査や尿検査の結果を記録しておくと、前回との比較や推移をひと目で振り返ることができます。")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -571,7 +492,7 @@ public struct HealthProfileView: View {
             .appCard()
         }
 
-        // Guideline 1.4.1 & 医師法第17条準拠：健診参考基準の公的出典と医療免責
+        // Guideline 1.4.1 & 医師法第17条準拠：参考基準の公的出典と医療免責
         VStack(alignment: .leading, spacing: 6) {
             Text("【参考基準値の出典および医療免責（Guideline 1.4.1）】\n画面内に記載されている一般的な基準値目安は、厚生労働省「標準的な健診・保健指導プログラム」および日本人間ドック・予防医療学会が公開する一般的な統計基準値です。本機能は検査結果の個人記録（備忘録）であり、疾病の診断や医学的判定を行うものではありません。気になる数値がある場合は必ず医師・医療機関にご相談ください。")
                 .font(.system(size: 10))
@@ -604,10 +525,12 @@ public struct HealthProfileView: View {
 
     @ViewBuilder
     private func latestHealthCheckDashboard(latest: HealthCheckRecord, previous: HealthCheckRecord?) -> some View {
+        let tiles = buildDisplayTiles(latest: latest, previous: previous)
+
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("最新の健診サマリ")
+                    Text("最新の健診・検査サマリ")
                         .font(.system(size: 16, weight: .bold))
                     Text("\(formatJapaneseDate(latest.examDate))\(latest.facilityName.isEmpty ? "" : " ・ \(latest.facilityName)")")
                         .font(.system(size: 12))
@@ -615,113 +538,52 @@ public struct HealthProfileView: View {
                 }
                 Spacer()
                 Button(action: { editingHealthCheck = latest }) {
-                    Label("編集", systemImage: "pencil")
+                    Label("詳細・編集", systemImage: "pencil")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(AppTheme.emerald)
                 }
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                if let sys = latest.systolicBP, let dia = latest.diastolicBP {
-                    labTile(
-                        title: "血圧 (最高/最低)",
-                        valueText: "\(sys)/\(dia)",
-                        unit: "mmHg",
-                        refNote: "基準目安: <130 / <85",
-                        diffText: previous?.systolicBP != nil ? formatIntDiff(sys - previous!.systolicBP!) : nil
-                    )
+            if !tiles.isEmpty {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(tiles) { tile in
+                        labTile(
+                            title: tile.title,
+                            valueText: tile.valueText,
+                            unit: tile.unit,
+                            refNote: tile.refNote,
+                            diffText: tile.diffText
+                        )
+                    }
                 }
-                if let ldl = latest.ldlCholesterol {
-                    labTile(
-                        title: "LDLコレステロール",
-                        valueText: "\(ldl)",
-                        unit: "mg/dL",
-                        refNote: "基準目安: 60〜119",
-                        diffText: previous?.ldlCholesterol != nil ? formatIntDiff(ldl - previous!.ldlCholesterol!) : nil
-                    )
-                }
-                if let hdl = latest.hdlCholesterol {
-                    labTile(
-                        title: "HDLコレステロール",
-                        valueText: "\(hdl)",
-                        unit: "mg/dL",
-                        refNote: "基準目安: 40以上",
-                        diffText: previous?.hdlCholesterol != nil ? formatIntDiff(hdl - previous!.hdlCholesterol!) : nil
-                    )
-                }
-                if let tg = latest.triglycerides {
-                    labTile(
-                        title: "中性脂肪 (TG)",
-                        valueText: "\(tg)",
-                        unit: "mg/dL",
-                        refNote: "基準目安: 30〜149",
-                        diffText: previous?.triglycerides != nil ? formatIntDiff(tg - previous!.triglycerides!) : nil
-                    )
-                }
-                if latest.ast != nil || latest.alt != nil {
-                    let astStr = latest.ast.map(String.init) ?? "-"
-                    let altStr = latest.alt.map(String.init) ?? "-"
-                    labTile(
-                        title: "肝機能 AST / ALT",
-                        valueText: "\(astStr) / \(altStr)",
-                        unit: "U/L",
-                        refNote: "基準目安: 30以下",
-                        diffText: nil
-                    )
-                }
-                if let ggtp = latest.gammaGTP {
-                    labTile(
-                        title: "γ-GTP",
-                        valueText: "\(ggtp)",
-                        unit: "U/L",
-                        refNote: "基準目安: 50以下",
-                        diffText: previous?.gammaGTP != nil ? formatIntDiff(ggtp - previous!.gammaGTP!) : nil
-                    )
-                }
-                if let fbg = latest.fastingGlucose {
-                    labTile(
-                        title: "空腹時血糖",
-                        valueText: "\(fbg)",
-                        unit: "mg/dL",
-                        refNote: "基準目安: 99以下",
-                        diffText: previous?.fastingGlucose != nil ? formatIntDiff(fbg - previous!.fastingGlucose!) : nil
-                    )
-                }
-                if let a1c = latest.hba1c {
-                    labTile(
-                        title: "HbA1c",
-                        valueText: String(format: "%.1f", a1c),
-                        unit: "%",
-                        refNote: "基準目安: 5.5以下",
-                        diffText: previous?.hba1c != nil ? formatDoubleDiff(a1c - previous!.hba1c!) : nil
-                    )
-                }
-                if let ua = latest.uricAcid {
-                    labTile(
-                        title: "尿酸値 (UA)",
-                        valueText: String(format: "%.1f", ua),
-                        unit: "mg/dL",
-                        refNote: "基準目安: 2.1〜7.0",
-                        diffText: previous?.uricAcid != nil ? formatDoubleDiff(ua - previous!.uricAcid!) : nil
-                    )
-                }
-                if let egfr = latest.egfr {
-                    labTile(
-                        title: "eGFR (腎機能)",
-                        valueText: String(format: "%.1f", egfr),
-                        unit: "mL/min",
-                        refNote: "基準目安: 60.0以上",
-                        diffText: previous?.egfr != nil ? formatDoubleDiff(egfr - previous!.egfr!) : nil
-                    )
-                }
-                if let w = latest.weightKg {
-                    labTile(
-                        title: "健診時体重",
-                        valueText: String(format: "%.1f", w),
-                        unit: "kg",
-                        refNote: latest.waistCm != nil ? "腹囲: \(String(format: "%.1f", latest.waistCm!))cm" : "身体計測",
-                        diffText: previous?.weightKg != nil ? formatDoubleDiff(w - previous!.weightKg!) : nil
-                    )
+            }
+
+            // 尿・心電図・X線・聴力などの定性所見表示
+            let findings = buildQualitativeSummary(latest: latest)
+            if !findings.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("定性検査・所見項目")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                        ForEach(findings, id: \.0) { label, val in
+                            HStack {
+                                Text(label)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(val)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color(.tertiarySystemGroupedBackground).opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
                 }
             }
 
@@ -736,6 +598,163 @@ public struct HealthProfileView: View {
         .appCard()
     }
 
+    private struct LabTileDisplay: Identifiable {
+        let id = UUID()
+        let title: String
+        let valueText: String
+        let unit: String
+        let refNote: String
+        let diffText: String?
+    }
+
+    private func buildDisplayTiles(latest: HealthCheckRecord, previous: HealthCheckRecord?) -> [LabTileDisplay] {
+        var list: [LabTileDisplay] = []
+
+        // 身体・血圧・脈拍・視力
+        if let w = latest.weightKg {
+            let sub = latest.waistCm != nil ? "腹囲: \(String(format: "%.1f", latest.waistCm!))cm" : (latest.bodyFatPercent != nil ? "体脂肪: \(String(format: "%.1f", latest.bodyFatPercent!))%" : "身体計測")
+            list.append(.init(title: "体重", valueText: String(format: "%.1f", w), unit: "kg", refNote: sub, diffText: previous?.weightKg.map { formatDoubleDiff(w - $0) }))
+        }
+        if let bf = latest.bodyFatPercent, latest.weightKg == nil {
+            list.append(.init(title: "体脂肪率", valueText: String(format: "%.1f", bf), unit: "%", refNote: "身体計測", diffText: previous?.bodyFatPercent.map { formatDoubleDiff(bf - $0) }))
+        }
+        if latest.visionRight != nil || latest.visionLeft != nil {
+            let vr = latest.visionRight.map { String(format: "%.1f", $0) } ?? "-"
+            let vl = latest.visionLeft.map { String(format: "%.1f", $0) } ?? "-"
+            list.append(.init(title: "視力 (右 / 左)", valueText: "\(vr) / \(vl)", unit: "", refNote: "視力検査", diffText: nil))
+        }
+        if let sys = latest.systolicBP, let dia = latest.diastolicBP {
+            list.append(.init(title: "血圧 (最高/最低)", valueText: "\(sys)/\(dia)", unit: "mmHg", refNote: "基準目安: <130/<85", diffText: previous?.systolicBP.map { formatIntDiff(sys - $0) }))
+        }
+        if let pulse = latest.pulseRate {
+            list.append(.init(title: "脈拍数", valueText: "\(pulse)", unit: "bpm", refNote: "基準目安: 60〜100", diffText: previous?.pulseRate.map { formatIntDiff(pulse - $0) }))
+        }
+
+        // 血算・貧血
+        if let wbc = latest.wbc {
+            list.append(.init(title: "白血球数 (WBC)", valueText: "\(wbc)", unit: "/μL", refNote: "基準目安: 3100〜8400", diffText: previous?.wbc.map { formatIntDiff(wbc - $0) }))
+        }
+        if let rbc = latest.rbc {
+            list.append(.init(title: "赤血球数 (RBC)", valueText: String(format: "%.0f", rbc), unit: "万/μL", refNote: "基準目安: 380〜550", diffText: previous?.rbc.map { formatDoubleDiff(rbc - $0) }))
+        }
+        if let hb = latest.hemoglobin {
+            list.append(.init(title: "ヘモグロビン (Hb)", valueText: String(format: "%.1f", hb), unit: "g/dL", refNote: "基準目安: 12.1〜17.0", diffText: previous?.hemoglobin.map { formatDoubleDiff(hb - $0) }))
+        }
+        if let ht = latest.hematocrit {
+            list.append(.init(title: "ヘマトクリット (Ht)", valueText: String(format: "%.1f", ht), unit: "%", refNote: "基準目安: 36〜50", diffText: previous?.hematocrit.map { formatDoubleDiff(ht - $0) }))
+        }
+        if let plt = latest.platelets {
+            list.append(.init(title: "血小板数 (PLT)", valueText: String(format: "%.1f", plt), unit: "万/μL", refNote: "基準目安: 14.0〜34.0", diffText: previous?.platelets.map { formatDoubleDiff(plt - $0) }))
+        }
+
+        // 脂質
+        if let tc = latest.totalCholesterol {
+            list.append(.init(title: "総コレステロール", valueText: "\(tc)", unit: "mg/dL", refNote: "基準目安: 140〜199", diffText: previous?.totalCholesterol.map { formatIntDiff(tc - $0) }))
+        }
+        if let ldl = latest.ldlCholesterol {
+            list.append(.init(title: "LDLコレステロール", valueText: "\(ldl)", unit: "mg/dL", refNote: "基準目安: 60〜119", diffText: previous?.ldlCholesterol.map { formatIntDiff(ldl - $0) }))
+        }
+        if let hdl = latest.hdlCholesterol {
+            list.append(.init(title: "HDLコレステロール", valueText: "\(hdl)", unit: "mg/dL", refNote: "基準目安: 40以上", diffText: previous?.hdlCholesterol.map { formatIntDiff(hdl - $0) }))
+        }
+        if let nonHdl = latest.nonHdlCholesterol {
+            list.append(.init(title: "Non-HDLコレステロール", valueText: "\(nonHdl)", unit: "mg/dL", refNote: "基準目安: 90〜149", diffText: previous?.nonHdlCholesterol.map { formatIntDiff(nonHdl - $0) }))
+        }
+        if let tg = latest.triglycerides {
+            list.append(.init(title: "中性脂肪 (TG)", valueText: "\(tg)", unit: "mg/dL", refNote: "基準目安: 30〜149", diffText: previous?.triglycerides.map { formatIntDiff(tg - $0) }))
+        }
+
+        // 肝機能・蛋白・膵
+        if let ast = latest.ast {
+            list.append(.init(title: "AST (GOT)", valueText: "\(ast)", unit: "U/L", refNote: "基準目安: 30以下", diffText: previous?.ast.map { formatIntDiff(ast - $0) }))
+        }
+        if let alt = latest.alt {
+            list.append(.init(title: "ALT (GPT)", valueText: "\(alt)", unit: "U/L", refNote: "基準目安: 30以下", diffText: previous?.alt.map { formatIntDiff(alt - $0) }))
+        }
+        if let ggtp = latest.gammaGTP {
+            list.append(.init(title: "γ-GTP", valueText: "\(ggtp)", unit: "U/L", refNote: "基準目安: 50以下", diffText: previous?.gammaGTP.map { formatIntDiff(ggtp - $0) }))
+        }
+        if let alp = latest.alp {
+            list.append(.init(title: "ALP", valueText: "\(alp)", unit: "U/L", refNote: "基準目安: 38〜113", diffText: previous?.alp.map { formatIntDiff(alp - $0) }))
+        }
+        if let ldh = latest.ldh {
+            list.append(.init(title: "LDH (LD)", valueText: "\(ldh)", unit: "U/L", refNote: "基準目安: 124〜222", diffText: previous?.ldh.map { formatIntDiff(ldh - $0) }))
+        }
+        if let tbil = latest.totalBilirubin {
+            list.append(.init(title: "総ビリルビン", valueText: String(format: "%.1f", tbil), unit: "mg/dL", refNote: "基準目安: 0.4〜1.5", diffText: previous?.totalBilirubin.map { formatDoubleDiff(tbil - $0) }))
+        }
+        if let tp = latest.totalProtein {
+            list.append(.init(title: "総蛋白 (TP)", valueText: String(format: "%.1f", tp), unit: "g/dL", refNote: "基準目安: 6.6〜8.1", diffText: previous?.totalProtein.map { formatDoubleDiff(tp - $0) }))
+        }
+        if let alb = latest.albumin {
+            list.append(.init(title: "アルブミン (Alb)", valueText: String(format: "%.1f", alb), unit: "g/dL", refNote: "基準目安: 4.1〜5.1", diffText: previous?.albumin.map { formatDoubleDiff(alb - $0) }))
+        }
+        if let amy = latest.amylase {
+            list.append(.init(title: "アミラーゼ", valueText: "\(amy)", unit: "U/L", refNote: "基準目安: 44〜132", diffText: previous?.amylase.map { formatIntDiff(amy - $0) }))
+        }
+
+        // 糖代謝・尿酸
+        if let fbg = latest.fastingGlucose {
+            list.append(.init(title: "血糖 (空腹時)", valueText: "\(fbg)", unit: "mg/dL", refNote: "基準目安: 99以下", diffText: previous?.fastingGlucose.map { formatIntDiff(fbg - $0) }))
+        }
+        if let a1c = latest.hba1c {
+            list.append(.init(title: "HbA1c", valueText: String(format: "%.1f", a1c), unit: "%", refNote: "基準目安: 5.5以下", diffText: previous?.hba1c.map { formatDoubleDiff(a1c - $0) }))
+        }
+        if let ua = latest.uricAcid {
+            list.append(.init(title: "尿酸値 (UA)", valueText: String(format: "%.1f", ua), unit: "mg/dL", refNote: "基準目安: 2.1〜7.0", diffText: previous?.uricAcid.map { formatDoubleDiff(ua - $0) }))
+        }
+
+        // 腎機能・電解質・炎症・鉄
+        if let bun = latest.bun {
+            list.append(.init(title: "尿素窒素 (BUN)", valueText: String(format: "%.1f", bun), unit: "mg/dL", refNote: "基準目安: 8.0〜20.0", diffText: previous?.bun.map { formatDoubleDiff(bun - $0) }))
+        }
+        if let cr = latest.creatinine {
+            list.append(.init(title: "クレアチニン (Cr)", valueText: String(format: "%.2f", cr), unit: "mg/dL", refNote: "基準目安: 1.00以下", diffText: previous?.creatinine.map { formatDoubleDiff(cr - $0) }))
+        }
+        if let egfr = latest.egfr {
+            list.append(.init(title: "eGFR (腎機能)", valueText: String(format: "%.1f", egfr), unit: "mL/min", refNote: "基準目安: 60.0以上", diffText: previous?.egfr.map { formatDoubleDiff(egfr - $0) }))
+        }
+        if let crp = latest.crp {
+            list.append(.init(title: "CRP定量", valueText: String(format: "%.2f", crp), unit: "mg/dL", refNote: "基準目安: 0.30以下", diffText: previous?.crp.map { formatDoubleDiff(crp - $0) }))
+        }
+        if let na = latest.sodium {
+            list.append(.init(title: "ナトリウム (Na)", valueText: String(format: "%.0f", na), unit: "mEq/L", refNote: "基準目安: 138〜145", diffText: nil))
+        }
+        if let k = latest.potassium {
+            list.append(.init(title: "カリウム (K)", valueText: String(format: "%.1f", k), unit: "mEq/L", refNote: "基準目安: 3.6〜4.8", diffText: nil))
+        }
+        if let cl = latest.chloride {
+            list.append(.init(title: "クロール (Cl)", valueText: String(format: "%.0f", cl), unit: "mEq/L", refNote: "基準目安: 101〜108", diffText: nil))
+        }
+        if let fe = latest.serumIron {
+            list.append(.init(title: "血清鉄 (Fe)", valueText: "\(fe)", unit: "μg/dL", refNote: "基準目安: 40〜188", diffText: previous?.serumIron.map { formatIntDiff(fe - $0) }))
+        }
+
+        // カスタム・追加検査項目
+        for extra in latest.extraItems where !extra.name.isEmpty && !extra.value.isEmpty {
+            list.append(.init(
+                title: extra.name,
+                valueText: extra.value,
+                unit: extra.unit,
+                refNote: extra.reference.isEmpty ? "追加検査項目" : "基準: \(extra.reference)",
+                diffText: nil
+            ))
+        }
+
+        return list
+    }
+
+    private func buildQualitativeSummary(latest: HealthCheckRecord) -> [(String, String)] {
+        var res: [(String, String)] = []
+        if !latest.urineProtein.isEmpty { res.append(("尿蛋白", latest.urineProtein)) }
+        if !latest.urineGlucose.isEmpty { res.append(("尿糖", latest.urineGlucose)) }
+        if !latest.urineOccultBlood.isEmpty { res.append(("尿潜血", latest.urineOccultBlood)) }
+        if !latest.hearingFinding.isEmpty { res.append(("聴力", latest.hearingFinding)) }
+        if !latest.ecgFinding.isEmpty { res.append(("心電図", latest.ecgFinding)) }
+        if !latest.chestXrayFinding.isEmpty { res.append(("胸部X線", latest.chestXrayFinding)) }
+        return res
+    }
+
     @ViewBuilder
     private func labTile(title: String, valueText: String, unit: String, refNote: String, diffText: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -746,13 +765,15 @@ public struct HealthProfileView: View {
 
             HStack(alignment: .lastTextBaseline, spacing: 3) {
                 Text(valueText)
-                    .font(.system(size: 19, weight: .black, design: .rounded))
+                    .font(.system(size: 18, weight: .black, design: .rounded))
                     .foregroundColor(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text(unit)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.secondary)
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
             }
 
             HStack {
@@ -1113,12 +1134,7 @@ public struct HealthProfileView: View {
             || genderRaw != p.genderRaw
             || abs(heightCm - p.heightCm) > 0.01
             || abs(weightKg - p.weightKg) > 0.01
-            || abs(targetWeightKg - p.targetWeightKg) > 0.01
             || activityLevel != p.activityLevel
-            || abs(targetCalories - p.targetCalories) > 0.1
-            || abs(targetProtein - p.targetProtein) > 0.1
-            || abs(targetFat - p.targetFat) > 0.1
-            || abs(targetCarbs - p.targetCarbs) > 0.1
             || medicalHistory != p.medicalHistory
             || allergies != p.allergies
             || dietaryRestrictions != p.dietaryRestrictions
@@ -1146,12 +1162,7 @@ public struct HealthProfileView: View {
             genderRaw = p.genderRaw
             heightCm = p.heightCm
             weightKg = p.weightKg
-            targetWeightKg = p.targetWeightKg
             activityLevel = p.activityLevel
-            targetCalories = p.targetCalories
-            targetProtein = p.targetProtein
-            targetFat = p.targetFat
-            targetCarbs = p.targetCarbs
             medicalHistory = p.medicalHistory
             allergies = p.allergies
             dietaryRestrictions = p.dietaryRestrictions
@@ -1175,12 +1186,7 @@ public struct HealthProfileView: View {
         profileToSave.genderRaw = genderRaw
         profileToSave.heightCm = heightCm
         profileToSave.weightKg = weightKg
-        profileToSave.targetWeightKg = targetWeightKg
         profileToSave.activityLevel = activityLevel
-        profileToSave.targetCalories = targetCalories
-        profileToSave.targetProtein = targetProtein
-        profileToSave.targetFat = targetFat
-        profileToSave.targetCarbs = targetCarbs
         profileToSave.medicalHistory = medicalHistory
         profileToSave.allergies = allergies
         profileToSave.dietaryRestrictions = dietaryRestrictions
@@ -1202,7 +1208,7 @@ public struct HealthProfileView: View {
 }
 
 // =============================================================================
-// MARK: - 健診結果 登録・編集モーダル（手入力 ＋ カメラ/写真 AI自動読取）
+// MARK: - 健診・検査結果 登録・編集モーダル（全8系統＋自由検査項目追加＋写真AI自動読取）
 // =============================================================================
 private struct HealthCheckEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -1213,23 +1219,68 @@ private struct HealthCheckEditorSheet: View {
     @State private var examDate: Date = Date()
     @State private var facilityName: String = ""
 
-    // 文字列ベースで入力しやすく保持（空欄＝未測定 nil として扱えるため）
+    // 1. 身体・視力・血圧・脈拍
     @State private var heightStr: String = ""
     @State private var weightStr: String = ""
+    @State private var bodyFatStr: String = ""
     @State private var waistStr: String = ""
+    @State private var visionRightStr: String = ""
+    @State private var visionLeftStr: String = ""
     @State private var sysBPStr: String = ""
     @State private var diaBPStr: String = ""
+    @State private var pulseStr: String = ""
+
+    // 2. 血算・貧血（CBC）
+    @State private var wbcStr: String = ""
+    @State private var rbcStr: String = ""
+    @State private var hbStr: String = ""
+    @State private var htStr: String = ""
+    @State private var pltStr: String = ""
+
+    // 3. 脂質
+    @State private var tcStr: String = ""
     @State private var ldlStr: String = ""
     @State private var hdlStr: String = ""
+    @State private var nonHdlStr: String = ""
     @State private var tgStr: String = ""
+
+    // 4. 肝機能・胆道・膵・蛋白
     @State private var astStr: String = ""
     @State private var altStr: String = ""
     @State private var ggtpStr: String = ""
+    @State private var alpStr: String = ""
+    @State private var ldhStr: String = ""
+    @State private var tbilStr: String = ""
+    @State private var tpStr: String = ""
+    @State private var albStr: String = ""
+    @State private var amyStr: String = ""
+
+    // 5. 糖代謝・尿酸
     @State private var fbgStr: String = ""
     @State private var hba1cStr: String = ""
     @State private var uaStr: String = ""
+
+    // 6. 腎機能・電解質・炎症・鉄
+    @State private var bunStr: String = ""
     @State private var crStr: String = ""
     @State private var egfrStr: String = ""
+    @State private var crpStr: String = ""
+    @State private var naStr: String = ""
+    @State private var kStr: String = ""
+    @State private var clStr: String = ""
+    @State private var feStr: String = ""
+
+    // 7. 尿検査・生理検査所見
+    @State private var urineProtein: String = ""
+    @State private var urineGlucose: String = ""
+    @State private var urineOccult: String = ""
+    @State private var hearingFinding: String = ""
+    @State private var ecgFinding: String = ""
+    @State private var chestXrayFinding: String = ""
+
+    // 8. 自由追加カスタム検査項目（特殊血液検査・ホルモン・腫瘍マーカー等すべて対応）
+    @State private var extraItems: [ExtraLabItem] = []
+
     @State private var memo: String = ""
 
     // 写真・AI読取
@@ -1245,7 +1296,7 @@ private struct HealthCheckEditorSheet: View {
                 // 1. 写真控え ＆ 任意AI自動読取セクション
                 Section(
                     header: Text("結果表の写真添付・AI自動読取（任意）"),
-                    footer: Text("※AI読取はAPIキー設定時のみ使用できる任意の補助機能です（手入力のみでもすべての項目を記録できます）。プライバシー保護のため、氏名や保険証番号等は隠して撮影することを推奨します。")
+                    footer: Text("※AI読取はAPIキー設定時のみ使用できる任意の補助機能です（手入力のみでもすべての項目を記録できます）。病院の採血結果など標準項目以外の数値も自動的に「その他の検査項目」へ追加されます。")
                 ) {
                     if let imageData, let uiImg = UIImage(data: imageData) {
                         ZStack(alignment: .topTrailing) {
@@ -1298,7 +1349,7 @@ private struct HealthCheckEditorSheet: View {
                                     Spacer()
                                     if isAnalyzing {
                                         ProgressView().tint(.white)
-                                        Text("検査数値を読み取り中...")
+                                        Text("すべての検査数値を読み取り中...")
                                             .font(.system(size: 13, weight: .bold))
                                     } else {
                                         Label("写真から検査数値をAI自動入力", systemImage: "sparkles")
@@ -1319,45 +1370,131 @@ private struct HealthCheckEditorSheet: View {
                 }
 
                 // 2. 受診基本情報
-                Section(header: Text("受診日・医療機関")) {
-                    DatePicker("受診日", selection: $examDate, displayedComponents: [.date])
-                    TextField("健診機関・病院名（任意）", text: $facilityName)
+                Section(header: Text("検査日・医療機関")) {
+                    DatePicker("検査・受診日", selection: $examDate, displayedComponents: [.date])
+                    TextField("健診機関・病院・クリニック名（任意）", text: $facilityName)
                 }
 
-                // 3. 身体計測・血圧
-                Section(header: Text("身体計測・血圧（わかる項目のみでOK）")) {
+                // 3. 身体計測・視力・血圧・脈拍
+                Section(header: Text("1. 身体計測・視力・血圧・脈拍（わかる項目のみでOK）")) {
                     numRow("身長", text: $heightStr, unit: "cm", placeholder: "170.0", decimal: true)
                     numRow("体重", text: $weightStr, unit: "kg", placeholder: "65.0", decimal: true)
+                    numRow("体脂肪率", text: $bodyFatStr, unit: "%", placeholder: "18.5", decimal: true)
                     numRow("腹囲", text: $waistStr, unit: "cm", placeholder: "78.0", decimal: true)
+                    numRow("視力（右）", text: $visionRightStr, unit: "", placeholder: "1.2", decimal: true)
+                    numRow("視力（左）", text: $visionLeftStr, unit: "", placeholder: "1.0", decimal: true)
                     numRow("最高血圧 (収縮期)", text: $sysBPStr, unit: "mmHg", placeholder: "120", decimal: false)
                     numRow("最低血圧 (拡張期)", text: $diaBPStr, unit: "mmHg", placeholder: "75", decimal: false)
+                    numRow("脈拍数", text: $pulseStr, unit: "拍/分", placeholder: "68", decimal: false)
                 }
 
-                // 4. 血中脂質
-                Section(header: Text("脂質（コレステロール・中性脂肪）")) {
+                // 4. 血算・貧血検査
+                Section(header: Text("2. 血液一般・貧血（CBC）")) {
+                    numRow("白血球数 (WBC)", text: $wbcStr, unit: "/μL", placeholder: "5400", decimal: false)
+                    numRow("赤血球数 (RBC)", text: $rbcStr, unit: "万/μL", placeholder: "470", decimal: true)
+                    numRow("血色素量 / Hb", text: $hbStr, unit: "g/dL", placeholder: "14.5", decimal: true)
+                    numRow("ヘマトクリット (Ht)", text: $htStr, unit: "%", placeholder: "43.5", decimal: true)
+                    numRow("血小板数 (PLT)", text: $pltStr, unit: "万/μL", placeholder: "23.5", decimal: true)
+                }
+
+                // 5. 脂質検査
+                Section(header: Text("3. 血中脂質（コレステロール・中性脂肪）")) {
+                    numRow("総コレステロール", text: $tcStr, unit: "mg/dL", placeholder: "190", decimal: false)
                     numRow("LDLコレステロール", text: $ldlStr, unit: "mg/dL", placeholder: "110", decimal: false)
                     numRow("HDLコレステロール", text: $hdlStr, unit: "mg/dL", placeholder: "60", decimal: false)
+                    numRow("Non-HDLコレステロール", text: $nonHdlStr, unit: "mg/dL", placeholder: "130", decimal: false)
                     numRow("中性脂肪 (TG)", text: $tgStr, unit: "mg/dL", placeholder: "95", decimal: false)
                 }
 
-                // 5. 肝機能
-                Section(header: Text("肝機能")) {
+                // 6. 肝機能・胆道・膵・蛋白
+                Section(header: Text("4. 肝機能・胆道・膵・血清蛋白")) {
                     numRow("AST (GOT)", text: $astStr, unit: "U/L", placeholder: "22", decimal: false)
                     numRow("ALT (GPT)", text: $altStr, unit: "U/L", placeholder: "20", decimal: false)
                     numRow("γ-GTP", text: $ggtpStr, unit: "U/L", placeholder: "30", decimal: false)
+                    numRow("ALP", text: $alpStr, unit: "U/L", placeholder: "70", decimal: false)
+                    numRow("LDH (LD)", text: $ldhStr, unit: "U/L", placeholder: "175", decimal: false)
+                    numRow("総ビリルビン (T-Bil)", text: $tbilStr, unit: "mg/dL", placeholder: "0.7", decimal: true)
+                    numRow("総蛋白 (TP)", text: $tpStr, unit: "g/dL", placeholder: "7.2", decimal: true)
+                    numRow("アルブミン (Alb)", text: $albStr, unit: "g/dL", placeholder: "4.5", decimal: true)
+                    numRow("アミラーゼ (AMY)", text: $amyStr, unit: "U/L", placeholder: "75", decimal: false)
                 }
 
-                // 6. 糖代謝・尿酸・腎機能
-                Section(header: Text("血糖・尿酸・腎機能")) {
-                    numRow("空腹時血糖", text: $fbgStr, unit: "mg/dL", placeholder: "92", decimal: false)
+                // 7. 糖代謝・尿酸
+                Section(header: Text("5. 糖代謝・痛風（尿酸）")) {
+                    numRow("血糖 (空腹時・随時)", text: $fbgStr, unit: "mg/dL", placeholder: "92", decimal: false)
                     numRow("HbA1c", text: $hba1cStr, unit: "%", placeholder: "5.4", decimal: true)
                     numRow("尿酸値 (UA)", text: $uaStr, unit: "mg/dL", placeholder: "5.8", decimal: true)
-                    numRow("クレアチニン", text: $crStr, unit: "mg/dL", placeholder: "0.80", decimal: true)
-                    numRow("eGFR", text: $egfrStr, unit: "mL/min", placeholder: "80.0", decimal: true)
                 }
 
-                // 7. メモ・削除
-                Section(header: Text("メモ・所見控え")) {
+                // 8. 腎機能・電解質・炎症・鉄代謝
+                Section(header: Text("6. 腎機能・電解質・炎症・鉄代謝")) {
+                    numRow("尿素窒素 (BUN / UN)", text: $bunStr, unit: "mg/dL", placeholder: "13.5", decimal: true)
+                    numRow("クレアチニン (Cr)", text: $crStr, unit: "mg/dL", placeholder: "0.80", decimal: true)
+                    numRow("eGFR", text: $egfrStr, unit: "mL/min", placeholder: "80.0", decimal: true)
+                    numRow("CRP定量 (炎症反応)", text: $crpStr, unit: "mg/dL", placeholder: "0.05", decimal: true)
+                    numRow("ナトリウム (Na)", text: $naStr, unit: "mEq/L", placeholder: "141", decimal: true)
+                    numRow("カリウム (K)", text: $kStr, unit: "mEq/L", placeholder: "4.1", decimal: true)
+                    numRow("クロール (Cl)", text: $clStr, unit: "mEq/L", placeholder: "103", decimal: true)
+                    numRow("血清鉄 (Fe)", text: $feStr, unit: "μg/dL", placeholder: "95", decimal: false)
+                }
+
+                // 9. 尿検査・心電図・胸部X線等の所見
+                Section(header: Text("7. 尿検査・生理検査・画像所見")) {
+                    textRow("尿蛋白", text: $urineProtein, placeholder: "例: (-), (±), (+)")
+                    textRow("尿糖", text: $urineGlucose, placeholder: "例: (-), (±), (+)")
+                    textRow("尿潜血", text: $urineOccult, placeholder: "例: (-), (±), (+)")
+                    textRow("聴力検査", text: $hearingFinding, placeholder: "例: 所見なし")
+                    textRow("心電図", text: $ecgFinding, placeholder: "例: 異常なし")
+                    textRow("胸部X線", text: $chestXrayFinding, placeholder: "例: 異常なし")
+                }
+
+                // 10. その他の検査項目（無制限カスタム追加）
+                Section(
+                    header: Text("8. その他の検査項目（自由追加）"),
+                    footer: Text("甲状腺（TSH/FT4）、フェリチン、CK(CPK)、腫瘍マーカー、アレルギー検査など、病院独自のあらゆる検査項目を自由に追加できます。")
+                ) {
+                    ForEach($extraItems) { $item in
+                        VStack(spacing: 8) {
+                            HStack {
+                                TextField("項目名（例: フェリチン, TSH）", text: $item.name)
+                                    .font(.system(size: 14, weight: .bold))
+                                Spacer()
+                                Button(role: .destructive, action: {
+                                    extraItems.removeAll { $0.id == item.id }
+                                }) {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            HStack(spacing: 8) {
+                                TextField("測定値", text: $item.value)
+                                    .keyboardType(.numbersAndPunctuation)
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .textFieldStyle(.roundedBorder)
+                                TextField("単位 (ng/mL等)", text: $item.unit)
+                                    .font(.system(size: 12))
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 100)
+                                TextField("基準値メモ", text: $item.reference)
+                                    .font(.system(size: 12))
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+
+                    Button(action: {
+                        extraItems.append(ExtraLabItem())
+                    }) {
+                        Label("任意の検査項目を追加する", systemImage: "plus.circle.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(AppTheme.emerald)
+                    }
+                }
+
+                // 11. メモ・削除
+                Section(header: Text("メモ・医師コメント控え")) {
                     TextField("医師からのアドバイス控えなど（任意）", text: $memo, axis: .vertical)
                         .lineLimit(2...4)
                 }
@@ -1371,14 +1508,14 @@ private struct HealthCheckEditorSheet: View {
                         }) {
                             HStack {
                                 Spacer()
-                                Label("この健診記録を削除", systemImage: "trash")
+                                Label("この健診・検査記録を削除", systemImage: "trash")
                                 Spacer()
                             }
                         }
                     }
                 }
             }
-            .navigationTitle(recordToEdit == nil ? "健診結果の記録" : "健診結果の編集")
+            .navigationTitle(recordToEdit == nil ? "健診・検査結果の記録" : "健診・検査結果の編集")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1426,17 +1563,31 @@ private struct HealthCheckEditorSheet: View {
     private func numRow(_ label: String, text: Binding<String>, unit: String, placeholder: String, decimal: Bool) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 14))
+                .font(.system(size: 13))
             Spacer()
             TextField(placeholder, text: text)
                 .keyboardType(decimal ? .decimalPad : .numberPad)
                 .multilineTextAlignment(.trailing)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .frame(width: 90)
-            Text(unit)
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .frame(width: 46, alignment: .leading)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .frame(width: 86)
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .frame(width: 48, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func textRow(_ label: String, text: Binding<String>, placeholder: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 13))
+            Spacer()
+            TextField(placeholder, text: text)
+                .multilineTextAlignment(.trailing)
+                .font(.system(size: 14))
         }
     }
 
@@ -1446,20 +1597,57 @@ private struct HealthCheckEditorSheet: View {
         facilityName = r.facilityName
         heightStr = r.heightCm.map { String(format: "%.1f", $0) } ?? ""
         weightStr = r.weightKg.map { String(format: "%.1f", $0) } ?? ""
+        bodyFatStr = r.bodyFatPercent.map { String(format: "%.1f", $0) } ?? ""
         waistStr = r.waistCm.map { String(format: "%.1f", $0) } ?? ""
+        visionRightStr = r.visionRight.map { String(format: "%.1f", $0) } ?? ""
+        visionLeftStr = r.visionLeft.map { String(format: "%.1f", $0) } ?? ""
         sysBPStr = r.systolicBP.map(String.init) ?? ""
         diaBPStr = r.diastolicBP.map(String.init) ?? ""
+        pulseStr = r.pulseRate.map(String.init) ?? ""
+
+        wbcStr = r.wbc.map(String.init) ?? ""
+        rbcStr = r.rbc.map { String(format: "%.0f", $0) } ?? ""
+        hbStr = r.hemoglobin.map { String(format: "%.1f", $0) } ?? ""
+        htStr = r.hematocrit.map { String(format: "%.1f", $0) } ?? ""
+        pltStr = r.platelets.map { String(format: "%.1f", $0) } ?? ""
+
+        tcStr = r.totalCholesterol.map(String.init) ?? ""
         ldlStr = r.ldlCholesterol.map(String.init) ?? ""
         hdlStr = r.hdlCholesterol.map(String.init) ?? ""
+        nonHdlStr = r.nonHdlCholesterol.map(String.init) ?? ""
         tgStr = r.triglycerides.map(String.init) ?? ""
+
         astStr = r.ast.map(String.init) ?? ""
         altStr = r.alt.map(String.init) ?? ""
         ggtpStr = r.gammaGTP.map(String.init) ?? ""
+        alpStr = r.alp.map(String.init) ?? ""
+        ldhStr = r.ldh.map(String.init) ?? ""
+        tbilStr = r.totalBilirubin.map { String(format: "%.1f", $0) } ?? ""
+        tpStr = r.totalProtein.map { String(format: "%.1f", $0) } ?? ""
+        albStr = r.albumin.map { String(format: "%.1f", $0) } ?? ""
+        amyStr = r.amylase.map(String.init) ?? ""
+
         fbgStr = r.fastingGlucose.map(String.init) ?? ""
         hba1cStr = r.hba1c.map { String(format: "%.1f", $0) } ?? ""
         uaStr = r.uricAcid.map { String(format: "%.1f", $0) } ?? ""
+
+        bunStr = r.bun.map { String(format: "%.1f", $0) } ?? ""
         crStr = r.creatinine.map { String(format: "%.2f", $0) } ?? ""
         egfrStr = r.egfr.map { String(format: "%.1f", $0) } ?? ""
+        crpStr = r.crp.map { String(format: "%.2f", $0) } ?? ""
+        naStr = r.sodium.map { String(format: "%.0f", $0) } ?? ""
+        kStr = r.potassium.map { String(format: "%.1f", $0) } ?? ""
+        clStr = r.chloride.map { String(format: "%.0f", $0) } ?? ""
+        feStr = r.serumIron.map(String.init) ?? ""
+
+        urineProtein = r.urineProtein
+        urineGlucose = r.urineGlucose
+        urineOccult = r.urineOccultBlood
+        hearingFinding = r.hearingFinding
+        ecgFinding = r.ecgFinding
+        chestXrayFinding = r.chestXrayFinding
+
+        extraItems = r.extraItems
         memo = r.memo
         imageData = r.sheetImageData
     }
@@ -1473,22 +1661,79 @@ private struct HealthCheckEditorSheet: View {
                 await MainActor.run {
                     if let dStr = res.examDate, let parsedDate = parseISODate(dStr) { examDate = parsedDate }
                     if let fac = res.facilityName, !fac.isEmpty { facilityName = fac }
+
                     if let v = res.heightCm { heightStr = String(format: "%.1f", v) }
                     if let v = res.weightKg { weightStr = String(format: "%.1f", v) }
+                    if let v = res.bodyFatPercent { bodyFatStr = String(format: "%.1f", v) }
                     if let v = res.waistCm { waistStr = String(format: "%.1f", v) }
+                    if let v = res.visionRight { visionRightStr = String(format: "%.1f", v) }
+                    if let v = res.visionLeft { visionLeftStr = String(format: "%.1f", v) }
                     if let v = res.systolicBP { sysBPStr = "\(v)" }
                     if let v = res.diastolicBP { diaBPStr = "\(v)" }
+                    if let v = res.pulseRate { pulseStr = "\(v)" }
+
+                    if let v = res.wbc { wbcStr = "\(v)" }
+                    if let v = res.rbc { rbcStr = String(format: "%.0f", v) }
+                    if let v = res.hemoglobin { hbStr = String(format: "%.1f", v) }
+                    if let v = res.hematocrit { htStr = String(format: "%.1f", v) }
+                    if let v = res.platelets { pltStr = String(format: "%.1f", v) }
+
+                    if let v = res.totalCholesterol { tcStr = "\(v)" }
                     if let v = res.ldlCholesterol { ldlStr = "\(v)" }
                     if let v = res.hdlCholesterol { hdlStr = "\(v)" }
+                    if let v = res.nonHdlCholesterol { nonHdlStr = "\(v)" }
                     if let v = res.triglycerides { tgStr = "\(v)" }
+
                     if let v = res.ast { astStr = "\(v)" }
                     if let v = res.alt { altStr = "\(v)" }
                     if let v = res.gammaGTP { ggtpStr = "\(v)" }
+                    if let v = res.alp { alpStr = "\(v)" }
+                    if let v = res.ldh { ldhStr = "\(v)" }
+                    if let v = res.totalBilirubin { tbilStr = String(format: "%.1f", v) }
+                    if let v = res.totalProtein { tpStr = String(format: "%.1f", v) }
+                    if let v = res.albumin { albStr = String(format: "%.1f", v) }
+                    if let v = res.amylase { amyStr = "\(v)" }
+
                     if let v = res.fastingGlucose { fbgStr = "\(v)" }
                     if let v = res.hba1c { hba1cStr = String(format: "%.1f", v) }
                     if let v = res.uricAcid { uaStr = String(format: "%.1f", v) }
+
+                    if let v = res.bun { bunStr = String(format: "%.1f", v) }
                     if let v = res.creatinine { crStr = String(format: "%.2f", v) }
                     if let v = res.egfr { egfrStr = String(format: "%.1f", v) }
+                    if let v = res.crp { crpStr = String(format: "%.2f", v) }
+                    if let v = res.sodium { naStr = String(format: "%.0f", v) }
+                    if let v = res.potassium { kStr = String(format: "%.1f", v) }
+                    if let v = res.chloride { clStr = String(format: "%.0f", v) }
+                    if let v = res.serumIron { feStr = "\(v)" }
+
+                    if let s = res.urineProtein, !s.isEmpty { urineProtein = s }
+                    if let s = res.urineGlucose, !s.isEmpty { urineGlucose = s }
+                    if let s = res.urineOccultBlood, !s.isEmpty { urineOccult = s }
+                    if let s = res.hearingFinding, !s.isEmpty { hearingFinding = s }
+                    if let s = res.ecgFinding, !s.isEmpty { ecgFinding = s }
+                    if let s = res.chestXrayFinding, !s.isEmpty { chestXrayFinding = s }
+
+                    if let extras = res.extraItems {
+                        for dto in extras {
+                            let n = (dto.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                            let val = (dto.value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !n.isEmpty && !val.isEmpty else { continue }
+                            if let idx = extraItems.firstIndex(where: { $0.name == n }) {
+                                extraItems[idx].value = val
+                                if let u = dto.unit { extraItems[idx].unit = u }
+                                if let r = dto.reference { extraItems[idx].reference = r }
+                            } else {
+                                extraItems.append(ExtraLabItem(
+                                    name: n,
+                                    value: val,
+                                    unit: dto.unit ?? "",
+                                    reference: dto.reference ?? ""
+                                ))
+                            }
+                        }
+                    }
+
                     isAnalyzing = false
                 }
             } catch {
@@ -1504,22 +1749,64 @@ private struct HealthCheckEditorSheet: View {
         let target = recordToEdit ?? HealthCheckRecord()
         target.examDate = examDate
         target.facilityName = facilityName.trimmingCharacters(in: .whitespacesAndNewlines)
+
         target.heightCm = Double(heightStr)
         target.weightKg = Double(weightStr)
+        target.bodyFatPercent = Double(bodyFatStr)
         target.waistCm = Double(waistStr)
+        target.visionRight = Double(visionRightStr)
+        target.visionLeft = Double(visionLeftStr)
         target.systolicBP = Int(sysBPStr)
         target.diastolicBP = Int(diaBPStr)
+        target.pulseRate = Int(pulseStr)
+
+        target.wbc = Int(wbcStr)
+        target.rbc = Double(rbcStr)
+        target.hemoglobin = Double(hbStr)
+        target.hematocrit = Double(htStr)
+        target.platelets = Double(pltStr)
+
+        target.totalCholesterol = Int(tcStr)
         target.ldlCholesterol = Int(ldlStr)
         target.hdlCholesterol = Int(hdlStr)
+        target.nonHdlCholesterol = Int(nonHdlStr)
         target.triglycerides = Int(tgStr)
+
         target.ast = Int(astStr)
         target.alt = Int(altStr)
         target.gammaGTP = Int(ggtpStr)
+        target.alp = Int(alpStr)
+        target.ldh = Int(ldhStr)
+        target.totalBilirubin = Double(tbilStr)
+        target.totalProtein = Double(tpStr)
+        target.albumin = Double(albStr)
+        target.amylase = Int(amyStr)
+
         target.fastingGlucose = Int(fbgStr)
         target.hba1c = Double(hba1cStr)
         target.uricAcid = Double(uaStr)
+
+        target.bun = Double(bunStr)
         target.creatinine = Double(crStr)
         target.egfr = Double(egfrStr)
+        target.crp = Double(crpStr)
+        target.sodium = Double(naStr)
+        target.potassium = Double(kStr)
+        target.chloride = Double(clStr)
+        target.serumIron = Int(feStr)
+
+        target.urineProtein = urineProtein.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.urineGlucose = urineGlucose.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.urineOccultBlood = urineOccult.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.hearingFinding = hearingFinding.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.ecgFinding = ecgFinding.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.chestXrayFinding = chestXrayFinding.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        target.extraItems = extraItems.filter {
+            !$0.name.trimmingCharacters(in: .whitespaces).isEmpty &&
+            !$0.value.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+
         target.memo = memo
         target.sheetImageData = imageData
 

@@ -126,15 +126,9 @@ public struct MealsView: View {
                             .foregroundColor(AppTheme.calorieIntake)
                             .preventTruncation()
 
-                        if let target = profile?.targetCalories {
-                            Text("/ \(Int(target)) kcal")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text("kcal")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(.secondary)
-                        }
+                        Text("kcal")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(.secondary)
                     }
                 }
                 Spacer()
@@ -146,10 +140,7 @@ public struct MealsView: View {
             PFCBalanceView(
                 protein: totalProtein,
                 fat: totalFat,
-                carbs: totalCarbs,
-                targetProtein: profile?.targetProtein,
-                targetFat: profile?.targetFat,
-                targetCarbs: profile?.targetCarbs
+                carbs: totalCarbs
             )
         }
         .padding(16)
@@ -331,7 +322,7 @@ public struct MealsView: View {
                             Text("栄養バランススコア")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(.secondary)
-                            Text(advice.score >= 80 ? "大変優れたバランスです！" : "あと少しで目標達成です")
+                            Text(advice.score >= 80 ? "大変優れたバランスです！" : "もうひと工夫でさらに良くなります")
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(AppTheme.emerald)
                         }

@@ -68,26 +68,72 @@ public struct GeminiDiagnosticResult {
     public let message: String
 }
 
-/// 健診結果シートAI読取結果DTO（個人識別情報を除外した検査数値のみ）
+/// 任意の追加検査項目DTO
+public struct ExtraLabItemDTO: Codable {
+    public let name: String?
+    public let value: String?
+    public let unit: String?
+    public let reference: String?
+}
+
+/// 健診・検査結果シートAI読取結果DTO（個人識別情報を除外した全検査項目）
 public struct HealthCheckAnalysisResult: Codable {
-    public let examDate: String?       // YYYY-MM-DD
+    public let examDate: String?          // YYYY-MM-DD
     public let facilityName: String?
+    // 身体・視力・血圧・脈拍
     public let heightCm: Double?
     public let weightKg: Double?
+    public let bodyFatPercent: Double?
     public let waistCm: Double?
+    public let visionRight: Double?
+    public let visionLeft: Double?
     public let systolicBP: Int?
     public let diastolicBP: Int?
+    public let pulseRate: Int?
+    // 血算・貧血
+    public let wbc: Int?
+    public let rbc: Double?
+    public let hemoglobin: Double?
+    public let hematocrit: Double?
+    public let platelets: Double?
+    // 脂質
+    public let totalCholesterol: Int?
     public let ldlCholesterol: Int?
     public let hdlCholesterol: Int?
+    public let nonHdlCholesterol: Int?
     public let triglycerides: Int?
+    // 肝機能・蛋白・膵
     public let ast: Int?
     public let alt: Int?
     public let gammaGTP: Int?
+    public let alp: Int?
+    public let ldh: Int?
+    public let totalBilirubin: Double?
+    public let totalProtein: Double?
+    public let albumin: Double?
+    public let amylase: Int?
+    // 糖代謝・尿酸
     public let fastingGlucose: Int?
     public let hba1c: Double?
     public let uricAcid: Double?
+    // 腎機能・電解質・炎症・鉄
+    public let bun: Double?
     public let creatinine: Double?
     public let egfr: Double?
+    public let crp: Double?
+    public let sodium: Double?
+    public let potassium: Double?
+    public let chloride: Double?
+    public let serumIron: Int?
+    // 尿・所見
+    public let urineProtein: String?
+    public let urineGlucose: String?
+    public let urineOccultBlood: String?
+    public let hearingFinding: String?
+    public let ecgFinding: String?
+    public let chestXrayFinding: String?
+    // 標準フィールド以外のすべての血液・尿・特殊検査項目
+    public let extraItems: [ExtraLabItemDTO]?
     public let memo: String?
 }
 
@@ -522,9 +568,9 @@ public final class GeminiService {
 
         let mealDetails = meals.map { "- \($0.mealType.rawValue): \($0.name) (\(Int($0.calories))kcal)" }.joined(separator: "\n")
 
-        var targetText = "目標カロリー: 2000kcal"
+        var profileContext = "一般的な成人"
         if let p = profile {
-            targetText = "目標カロリー: \(Int(p.targetCalories))kcal (P:\(Int(p.targetProtein))g, F:\(Int(p.targetFat))g, C:\(Int(p.targetCarbs))g)"
+            profileContext = p.aiContextSummary
         }
 
         let prompt = """
@@ -532,9 +578,9 @@ public final class GeminiService {
 
         【厳格な遵守事項（医師法・薬機法遵守）】
         - 医療行為、疾病の治療や診断、医薬品的な効能の標榜は一切行わないでください。
-        - 毎日の健康的な食習慣づくりのための、栄養学的な観点からの一般的なバランス講評として出力してください。
+        - 固定の目標値は設けず、一般的な栄養学上のPFCバランス（タンパク質・脂質・炭水化物の比率や食事の組み合わせ）の観点から、日常の健康的な食習慣づくりの講評として出力してください。
 
-        【目標値】: \(targetText)
+        【身体プロフィール参考】: \(profileContext)
         【本日合計】: カロリー \(Int(totalCal))kcal, P: \(Int(totalP))g, F: \(Int(totalF))g, C: \(Int(totalC))g
         【食事内訳】:
         \(mealDetails)
@@ -543,7 +589,7 @@ public final class GeminiService {
         {
           "score": 85,
           "summary": "1日を通してタンパク質がしっかり確保され、バランスの良い食生活が実践できています。",
-          "goodPoints": "昼食で良質なタンパク質を補給できており、目標達成に向けて順調です。",
+          "goodPoints": "昼食で良質なタンパク質を補給できており、栄養バランスが整っています。",
           "improvementPoints": "夕食の炭水化物が少し控えめだったため、明日の朝食に食物繊維豊富な主食をプラスするとさらに良いバランスになります。"
         }
         """
@@ -580,34 +626,68 @@ public final class GeminiService {
         let base64String = optimizedData.base64EncodedString()
 
         let prompt = """
-        添付された健康診断・人間ドックの結果表の画像から、検査数値のみを読み取って以下のJSON形式のみで出力してください。
+        添付された健康診断・人間ドック・病院の血液検査/尿検査の結果表画像から、印字されているすべての検査数値・所見を読み取って以下のJSON形式のみで出力してください。
 
         【厳格なプライバシー保護・法令遵守ルール】
         - 受診者の氏名、住所、生年月日、保険者番号、被保険者記号・番号などの個人識別情報（PII）は絶対に抽出・出力しないでください。
-        - 病気の診断や医学的判定コメントの作成は一切行わず、紙面に印字されている客観的な検査数値のみを抽出してください。
-        - 画像内に存在しない項目や読み取れない項目は推測せず必ず `null` にしてください。
-        - 和暦（令和6年、R6、2026年等）の受診日は西暦 `YYYY-MM-DD` 形式に変換してください（例: 令和6年=2024年、令和7年=2025年、令和8年=2026年）。
+        - 病気の診断や医学的判定コメントの作成は一切行わず、紙面に印字されている客観的な検査数値・定性結果のみを抽出してください。
+        - 画像内に存在しない項目は推測せず必ず `null` にしてください。
+        - 標準キーに含まれない検査項目（例: MCV, MCH, MCHC, フェリチン, TSH, FT3, FT4, CK/CPK, Ca, P, Mg, IgE, 腫瘍マーカー, 眼底, 便潜血 等）が紙面にある場合は、漏れなくすべて `extraItems` 配列に `{"name": "項目名", "value": "測定値", "unit": "単位", "reference": "記載基準値"}` として格納してください。
+        - 白血球数(`wbc`)は `/μL` 単位の整数に揃えてください（例: 紙面が `52` (×10²/μL) や `5.2` (×10³/μL) の場合は `5200` に換算、すでに `5200` ならそのまま）。赤血球数(`rbc`)は `万/μL`（例: `465`）、血小板数(`platelets`)は `万/μL`（例: `24.5`）に揃えてください。
+        - 和暦（令和6年=2024、令和7年=2025、令和8年=2026等）の受診日は西暦 `YYYY-MM-DD` 形式に変換してください。
 
         出力スキーマ（JSONのみ、Markdownのバッククォート不要）:
         {
           "examDate": "2026-05-15",
-          "facilityName": "〇〇健診センター",
+          "facilityName": "〇〇クリニック",
           "heightCm": 170.5,
           "weightKg": 64.2,
+          "bodyFatPercent": 18.5,
           "waistCm": 78.0,
+          "visionRight": 1.2,
+          "visionLeft": 1.0,
           "systolicBP": 118,
           "diastolicBP": 74,
+          "pulseRate": 68,
+          "wbc": 5400,
+          "rbc": 472.0,
+          "hemoglobin": 14.6,
+          "hematocrit": 43.8,
+          "platelets": 23.5,
+          "totalCholesterol": 192,
           "ldlCholesterol": 112,
           "hdlCholesterol": 62,
+          "nonHdlCholesterol": 130,
           "triglycerides": 95,
           "ast": 21,
           "alt": 19,
           "gammaGTP": 28,
+          "alp": 68,
+          "ldh": 175,
+          "totalBilirubin": 0.7,
+          "totalProtein": 7.2,
+          "albumin": 4.5,
+          "amylase": 74,
           "fastingGlucose": 92,
           "hba1c": 5.4,
           "uricAcid": 5.8,
+          "bun": 13.5,
           "creatinine": 0.82,
           "egfr": 78.5,
+          "crp": 0.05,
+          "sodium": 141.0,
+          "potassium": 4.1,
+          "chloride": 103.0,
+          "serumIron": 98,
+          "urineProtein": "(-)",
+          "urineGlucose": "(-)",
+          "urineOccultBlood": "(-)",
+          "hearingFinding": "所見なし",
+          "ecgFinding": "異常なし",
+          "chestXrayFinding": "異常なし",
+          "extraItems": [
+            {"name": "フェリチン", "value": "85.2", "unit": "ng/mL", "reference": "30〜300"}
+          ],
           "memo": null
         }
         """

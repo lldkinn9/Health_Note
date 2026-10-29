@@ -89,15 +89,10 @@ public struct SummaryView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.secondary)
                 Spacer()
-                if let target = profile?.targetCalories {
-                    Text("目標: \(Int(target)) kcal")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
             }
 
             // 摂取・消費・ネットの3分割グリッド
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 // 摂取カロリー
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
@@ -120,10 +115,10 @@ public struct SummaryView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Divider().frame(height: 35)
+                Divider().frame(height: 44)
 
-                // 消費カロリー
-                VStack(alignment: .leading, spacing: 4) {
+                // 消費カロリー（下に小さく「安静時＋運動」を表記）
+                VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 11, weight: .bold))
@@ -141,10 +136,13 @@ public struct SummaryView: View {
                             .font(.system(size: 10, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                     }
+                    Text("安静時＋運動")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Divider().frame(height: 35)
+                Divider().frame(height: 44)
 
                 // ネットカロリー
                 VStack(alignment: .leading, spacing: 4) {
@@ -183,10 +181,7 @@ public struct SummaryView: View {
             PFCBalanceView(
                 protein: proteinGrams,
                 fat: fatGrams,
-                carbs: carbsGrams,
-                targetProtein: profile?.targetProtein,
-                targetFat: profile?.targetFat,
-                targetCarbs: profile?.targetCarbs
+                carbs: carbsGrams
             )
         }
         .padding(16)
