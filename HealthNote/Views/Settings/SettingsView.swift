@@ -8,6 +8,7 @@ public struct SettingsView: View {
     @Query private var allProfiles: [HealthProfile]
     @Query private var allHealthChecks: [HealthCheckRecord]
     @Query private var allMedicalExpenses: [MedicalExpenseRecord]
+    @Query private var allDailyLogs: [DailyHealthLog]
     @Query private var allMedications: [MedicationItem]
     @Query private var allMessages: [AdvisorChatMessage]
     @Query private var allAdvices: [DailyAdvice]
@@ -331,6 +332,7 @@ public struct SettingsView: View {
         for item in allProfiles { modelContext.delete(item) }
         for item in allHealthChecks { modelContext.delete(item) }
         for item in allMedicalExpenses { modelContext.delete(item) }
+        for item in allDailyLogs { modelContext.delete(item) }
         for item in allMedications { modelContext.delete(item) }
         for item in allMessages { modelContext.delete(item) }
         for item in allAdvices { modelContext.delete(item) }

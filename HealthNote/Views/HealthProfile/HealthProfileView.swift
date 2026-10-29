@@ -16,6 +16,7 @@ public enum ProfileSubTab: String, CaseIterable, Identifiable {
 public struct HealthProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [HealthProfile]
+    @Query private var dailyLogs: [DailyHealthLog]
     @Query(sort: \MedicationItem.orderIndex) private var medications: [MedicationItem]
     @Query(sort: \HealthCheckRecord.examDate, order: .reverse) private var healthChecks: [HealthCheckRecord]
     @Query(sort: \MedicalExpenseRecord.paymentDate, order: .reverse) private var medicalExpenses: [MedicalExpenseRecord]
@@ -1625,12 +1626,32 @@ public struct HealthProfileView: View {
             if activeProfile == nil {
                 modelContext.insert(profileToSave)
             }
+            upsertTodayBodySnapshot(weight: weightKg, bodyFat: profileToSave.bodyFatPercentage)
             try? modelContext.save()
         }
 
         DispatchQueue.main.async {
             self.isLoaded = prevLoaded
             self.hasChanges = self.hasActualChanges
+        }
+    }
+
+    private func upsertTodayBodySnapshot(weight: Double, bodyFat: Double?) {
+        let todayKey = DailyHealthLog.makeDateKey(for: Date())
+        if let existing = dailyLogs.first(where: { $0.dateKey == todayKey }) {
+            existing.weightKg = weight
+            if let bodyFat, bodyFat > 0 {
+                existing.bodyFatPercentage = bodyFat
+            }
+            existing.updatedAt = Date()
+        } else {
+            let log = DailyHealthLog(
+                dateKey: todayKey,
+                isMedicationCompleted: false,
+                weightKg: weight,
+                bodyFatPercentage: bodyFat
+            )
+            modelContext.insert(log)
         }
     }
 
@@ -1677,6 +1698,7 @@ public struct HealthProfileView: View {
             modelContext.insert(profileToSave)
         }
 
+        upsertTodayBodySnapshot(weight: weightKg, bodyFat: profileToSave.bodyFatPercentage)
         try? modelContext.save()
         didUserManuallyEditBodyMetricsInSession = false
         dismissKeyboard()

@@ -8,6 +8,7 @@ public enum ModelContainerFactory {
         HealthProfile.self,
         HealthCheckRecord.self,
         MedicalExpenseRecord.self,
+        DailyHealthLog.self,
         MedicationItem.self,
         AdvisorChatMessage.self,
         DailyAdvice.self

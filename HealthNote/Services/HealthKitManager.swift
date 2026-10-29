@@ -165,6 +165,59 @@ public final class HealthKitManager: ObservableObject {
         )
     }
 
+    // MARK: - カレンダー選択日用：任意の日付の歩数・消費カロリー・体重・体脂肪率を取得
+    public struct DayHealthKitMetrics {
+        public var stepCount: Double = 0
+        public var burnedCalories: Double = 0
+        public var weightKg: Double? = nil
+        public var bodyFatPercentage: Double? = nil
+
+        public init(
+            stepCount: Double = 0,
+            burnedCalories: Double = 0,
+            weightKg: Double? = nil,
+            bodyFatPercentage: Double? = nil
+        ) {
+            self.stepCount = stepCount
+            self.burnedCalories = burnedCalories
+            self.weightKg = weightKg
+            self.bodyFatPercentage = bodyFatPercentage
+        }
+    }
+
+    public func fetchDayMetrics(for date: Date) async -> DayHealthKitMetrics {
+        guard isAvailable else { return DayHealthKitMetrics() }
+
+        let cal = Calendar.current
+        let startOfDay = cal.startOfDay(for: date)
+        let endOfDay = min(Date(), cal.date(byAdding: .day, value: 1, to: startOfDay) ?? date)
+
+        guard endOfDay > startOfDay else { return DayHealthKitMetrics() }
+
+        async let steps = fetchSumQuantity(for: .stepCount, unit: .count(), start: startOfDay, end: endOfDay)
+        async let activeCal = fetchSumQuantity(for: .activeEnergyBurned, unit: .kilocalorie(), start: startOfDay, end: endOfDay)
+        async let basalCal = fetchSumQuantity(for: .basalEnergyBurned, unit: .kilocalorie(), start: startOfDay, end: endOfDay)
+        async let dayWeight = fetchLatestQuantityInRange(for: .bodyMass, unit: .gramUnit(with: .kilo), start: startOfDay, end: endOfDay)
+        async let dayBodyFat = fetchLatestQuantityInRange(for: .bodyFatPercentage, unit: .percent(), start: startOfDay, end: endOfDay)
+
+        let stepVal = await steps
+        let burnedVal = (await activeCal) + (await basalCal)
+        let wVal = await dayWeight
+        let bfRaw = await dayBodyFat
+
+        var normalizedBF: Double? = nil
+        if let bfRaw, bfRaw > 0 {
+            normalizedBF = bfRaw <= 1.0 ? (bfRaw * 100.0) : bfRaw
+        }
+
+        return DayHealthKitMetrics(
+            stepCount: stepVal,
+            burnedCalories: burnedVal,
+            weightKg: (wVal != nil && wVal! > 0) ? wVal : nil,
+            bodyFatPercentage: normalizedBF
+        )
+    }
+
     // MARK: - 食事データのHealthKit書き込み
     public func saveMealToHealthKit(meal: Meal) async -> Bool {
         guard isAvailable else { return false }
@@ -228,6 +281,34 @@ public final class HealthKitManager: ObservableObject {
             ) { _, result, _ in
                 let value = result?.sumQuantity()?.doubleValue(for: unit) ?? 0
                 continuation.resume(returning: value)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func fetchLatestQuantityInRange(
+        for identifier: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        start: Date,
+        end: Date
+    ) async -> Double? {
+        guard let quantityType = HKQuantityType.quantityType(forIdentifier: identifier) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: quantityType,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [sortDescriptor]
+            ) { _, samples, _ in
+                guard let sample = samples?.first as? HKQuantitySample else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let val = sample.quantity.doubleValue(for: unit)
+                continuation.resume(returning: val)
             }
             healthStore.execute(query)
         }

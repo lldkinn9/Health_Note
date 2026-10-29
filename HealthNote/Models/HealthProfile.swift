@@ -372,3 +372,38 @@ public final class MedicalExpenseRecord: Identifiable {
         set { categoryRaw = newValue.rawValue }
     }
 }
+
+// MARK: - 日次健康ログ（カレンダーの服薬完了スタンプ履歴・日別体重/体脂肪率スナップショット）
+@Model
+public final class DailyHealthLog: Identifiable {
+    public var id: UUID = UUID()
+    public var dateKey: String = ""                 // "yyyy-MM-dd"
+    public var isMedicationCompleted: Bool = false  // その日の服薬・サプリ摂取がすべて完了したか
+    public var weightKg: Double? = nil              // その日に記録・同期された体重
+    public var bodyFatPercentage: Double? = nil     // その日に記録・同期された体脂肪率
+    public var updatedAt: Date = Date()
+
+    public init(
+        id: UUID = UUID(),
+        dateKey: String = "",
+        isMedicationCompleted: Bool = false,
+        weightKg: Double? = nil,
+        bodyFatPercentage: Double? = nil
+    ) {
+        self.id = id
+        self.dateKey = dateKey
+        self.isMedicationCompleted = isMedicationCompleted
+        self.weightKg = weightKg
+        self.bodyFatPercentage = bodyFatPercentage
+        self.updatedAt = Date()
+    }
+
+    public static func makeDateKey(for date: Date) -> String {
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year, .month, .day], from: date)
+        let y = comps.year ?? 2026
+        let m = comps.month ?? 1
+        let d = comps.day ?? 1
+        return String(format: "%04d-%02d-%02d", y, m, d)
+    }
+}

@@ -17,6 +17,7 @@ public struct SummaryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Meal.timestamp, order: .forward) private var allMeals: [Meal]
     @Query private var profiles: [HealthProfile]
+    @Query private var dailyLogs: [DailyHealthLog]
     @Query(sort: \MedicationItem.orderIndex) private var medications: [MedicationItem]
 
     @StateObject private var healthKit = HealthKitManager.shared
@@ -355,6 +356,7 @@ public struct SummaryView: View {
                             for item in scheduled {
                                 item.setTakenToday(shouldMarkTaken, for: timing)
                             }
+                            syncTodayMedicationStampToDailyLog()
                             try? modelContext.save()
                         }) {
                             VStack(spacing: 3) {
@@ -425,6 +427,7 @@ public struct SummaryView: View {
                                             let generator = UIImpactFeedbackGenerator(style: .light)
                                             generator.impactOccurred()
                                             med.toggleIntakeToday(for: timing)
+                                            syncTodayMedicationStampToDailyLog()
                                             try? modelContext.save()
                                         }) {
                                             HStack(spacing: 6) {
@@ -543,7 +546,32 @@ public struct SummaryView: View {
         for med in medications {
             med.resetIfNewDay()
         }
+        syncTodayMedicationStampToDailyLog()
         try? modelContext.save()
+    }
+
+    /// カレンダーの薬スタンプ表示用：本日の登録済み服薬・サプリメントがすべて摂取完了しているかを DailyHealthLog に記録
+    private func syncTodayMedicationStampToDailyLog() {
+        let activeItems = medications.filter { !$0.selectedTimings.isEmpty }
+        let allCompletedToday = !activeItems.isEmpty && activeItems.allSatisfy { med in
+            med.selectedTimings.allSatisfy { timing in
+                med.isTakenToday(for: timing)
+            }
+        }
+
+        let todayKey = DailyHealthLog.makeDateKey(for: Date())
+        if let existing = dailyLogs.first(where: { $0.dateKey == todayKey }) {
+            existing.isMedicationCompleted = allCompletedToday
+            existing.updatedAt = Date()
+        } else if allCompletedToday {
+            let log = DailyHealthLog(
+                dateKey: todayKey,
+                isMedicationCompleted: true,
+                weightKg: profile?.weightKg,
+                bodyFatPercentage: profile?.bodyFatPercentage
+            )
+            modelContext.insert(log)
+        }
     }
 
     private func refreshData() {
