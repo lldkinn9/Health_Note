@@ -56,11 +56,29 @@ public final class HealthKitManager: ObservableObject {
     @Published public var isLoading: Bool = false
     @Published public var errorMessage: String? = nil
 
-    private init() {}
+    private init() {
+        refreshAuthorizationFlag()
+    }
 
     /// HealthKitが利用可能な端末かチェック（iPad等ではfalseの場合がある）
     public var isAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
+    }
+
+    /// 保存済みフラグおよび書き込み認可ステータスから連携済み状態を判定
+    public func refreshAuthorizationFlag() {
+        guard isAvailable else {
+            isAuthorized = false
+            return
+        }
+        if let energyType = HKObjectType.quantityType(forIdentifier: .dietaryEnergyConsumed),
+           healthStore.authorizationStatus(for: energyType) == .sharingAuthorized {
+            isAuthorized = true
+            return
+        }
+        if UserDefaults.standard.bool(forKey: bodyMetricsAuthKey) {
+            isAuthorized = true
+        }
     }
 
     // MARK: - 権限リクエスト（体重・体脂肪率を含む全対象項目）
@@ -120,12 +138,14 @@ public final class HealthKitManager: ObservableObject {
 
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
+        // 昨晩からの睡眠時間（前日18:00〜現在時刻）を対象とし、前々日の睡眠が混ざらないようにする
+        let sleepWindowStart = Calendar.current.date(byAdding: .hour, value: -6, to: startOfDay) ?? startOfDay
 
         async let steps = fetchSumQuantity(for: .stepCount, unit: .count(), start: startOfDay, end: now)
         async let activeCal = fetchSumQuantity(for: .activeEnergyBurned, unit: .kilocalorie(), start: startOfDay, end: now)
         async let basalCal = fetchSumQuantity(for: .basalEnergyBurned, unit: .kilocalorie(), start: startOfDay, end: now)
         async let heartRate = fetchLatestHeartRate(start: startOfDay, end: now)
-        async let sleep = fetchSleepHours(start: Calendar.current.date(byAdding: .day, value: -1, to: startOfDay)!, end: now)
+        async let sleep = fetchSleepHours(start: sleepWindowStart, end: now)
         async let latestWeight = fetchLatestQuantitySample(for: .bodyMass, unit: .gramUnit(with: .kilo))
         async let latestBodyFat = fetchLatestQuantitySample(for: .bodyFatPercentage, unit: .percent())
 
@@ -378,22 +398,37 @@ public final class HealthKitManager: ObservableObject {
                     return
                 }
 
-                // asleep または asleepCore, asleepDeep, asleepREM の睡眠時間を合算
-                var totalSeconds: TimeInterval = 0
+                // iPhoneとApple Watch等の重複記録による二重計上を防ぐため、睡眠区間をマージして合算
+                var intervals: [(start: Date, end: Date)] = []
                 for sample in sleepSamples {
+                    let isAsleep: Bool
                     if #available(iOS 16.0, *) {
-                        if sample.value == HKCategoryValueSleepAnalysis.asleepCore.rawValue ||
+                        isAsleep = sample.value == HKCategoryValueSleepAnalysis.asleepCore.rawValue ||
                             sample.value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue ||
                             sample.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue ||
-                            sample.value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue {
-                            totalSeconds += sample.endDate.timeIntervalSince(sample.startDate)
-                        }
+                            sample.value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue
                     } else {
-                        if sample.value == HKCategoryValueSleepAnalysis.asleep.rawValue {
-                            totalSeconds += sample.endDate.timeIntervalSince(sample.startDate)
-                        }
+                        isAsleep = sample.value == HKCategoryValueSleepAnalysis.asleep.rawValue
+                    }
+                    guard isAsleep else { continue }
+                    let clippedStart = max(start, sample.startDate)
+                    let clippedEnd = min(end, sample.endDate)
+                    if clippedEnd > clippedStart {
+                        intervals.append((start: clippedStart, end: clippedEnd))
                     }
                 }
+
+                intervals.sort { $0.start < $1.start }
+                var merged: [(start: Date, end: Date)] = []
+                for interval in intervals {
+                    if let last = merged.last, interval.start <= last.end {
+                        merged[merged.count - 1].end = max(last.end, interval.end)
+                    } else {
+                        merged.append(interval)
+                    }
+                }
+
+                let totalSeconds = merged.reduce(0.0) { $0 + $1.end.timeIntervalSince($1.start) }
                 continuation.resume(returning: totalSeconds / 3600.0)
             }
             healthStore.execute(query)

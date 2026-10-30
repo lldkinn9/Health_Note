@@ -578,8 +578,58 @@ public struct SummaryView: View {
         Task {
             if healthKit.isAvailable {
                 await healthKit.ensureBodyMetricsAuthorizationAndFetch()
+                syncHealthKitBodyMetricsToProfileIfNewer()
             }
             syncToWidget()
+        }
+    }
+
+    /// 起動直後やフォアグラウンド復帰時に、ヘルスケア側の新しい体重・体脂肪率があればマイカルテ＆日次ログへ自動反映
+    private func syncHealthKitBodyMetricsToProfileIfNewer() {
+        guard let targetProfile = profile else { return }
+        let manualDate = targetProfile.manualBodyMetricsUpdatedAt
+        var didUpdate = false
+
+        if let hkW = healthKit.vitals.latestWeightKg, hkW > 0 {
+            let hkDate = healthKit.vitals.latestWeightDate ?? Date()
+            if manualDate == nil || hkDate >= manualDate! {
+                let rounded = (hkW * 10).rounded() / 10.0
+                if abs(targetProfile.weightKg - rounded) > 0.05 {
+                    targetProfile.weightKg = rounded
+                    didUpdate = true
+                }
+            }
+        }
+
+        if let hkBF = healthKit.vitals.latestBodyFatPercentage, hkBF > 0 {
+            let hkDate = healthKit.vitals.latestBodyFatDate ?? Date()
+            if manualDate == nil || hkDate >= manualDate! {
+                let rounded = (hkBF * 10).rounded() / 10.0
+                if targetProfile.bodyFatPercentage == nil || abs((targetProfile.bodyFatPercentage ?? 0) - rounded) > 0.05 {
+                    targetProfile.bodyFatPercentage = rounded
+                    didUpdate = true
+                }
+            }
+        }
+
+        if didUpdate {
+            let todayKey = DailyHealthLog.makeDateKey(for: Date())
+            if let existing = dailyLogs.first(where: { $0.dateKey == todayKey }) {
+                existing.weightKg = targetProfile.weightKg
+                if let bf = targetProfile.bodyFatPercentage, bf > 0 {
+                    existing.bodyFatPercentage = bf
+                }
+                existing.updatedAt = Date()
+            } else {
+                let log = DailyHealthLog(
+                    dateKey: todayKey,
+                    isMedicationCompleted: false,
+                    weightKg: targetProfile.weightKg,
+                    bodyFatPercentage: targetProfile.bodyFatPercentage
+                )
+                modelContext.insert(log)
+            }
+            try? modelContext.save()
         }
     }
 

@@ -29,6 +29,7 @@ public struct SettingsView: View {
     @State private var showingProUpgradeSheet: Bool = false
 
     @ObservedObject private var purchaseManager = PurchaseManager.shared
+    @ObservedObject private var healthKit = HealthKitManager.shared
 
     public init() {}
 
@@ -189,18 +190,16 @@ public struct SettingsView: View {
                         Label("ヘルスケア同期", systemImage: "heart.fill")
                             .foregroundColor(.pink)
                         Spacer()
-                        Text(HealthKitManager.shared.isAuthorized ? "接続済み" : "未接続")
-                            .foregroundColor(HealthKitManager.shared.isAuthorized ? .green : .secondary)
+                        Text(healthKit.isAuthorized ? "接続済み" : "未接続")
+                            .foregroundColor(healthKit.isAuthorized ? .green : .secondary)
                     }
 
-                    if !HealthKitManager.shared.isAuthorized {
-                        Button(action: {
-                            Task { await HealthKitManager.shared.requestAuthorization() }
-                        }) {
-                            Text("ヘルスケアのアクセス権限をリクエスト")
-                                .font(.system(size: 14))
-                                .foregroundColor(AppTheme.emerald)
-                        }
+                    Button(action: {
+                        Task { _ = await healthKit.requestAuthorization() }
+                    }) {
+                        Text(healthKit.isAuthorized ? "ヘルスケアの最新データを今すぐ再同期" : "ヘルスケアのアクセス権限をリクエスト")
+                            .font(.system(size: 14))
+                            .foregroundColor(AppTheme.emerald)
                     }
                 }
 
