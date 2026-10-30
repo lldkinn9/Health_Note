@@ -19,7 +19,7 @@
       color: var(--text);
       margin: 0;
       padding: 0;
-      line-height: 1.7;
+      line-height: 1.75;
     }
     header {
       background: var(--navy);
@@ -31,8 +31,13 @@
       margin: 0 0 8px 0;
       font-size: 24px;
     }
+    header p {
+      margin: 0;
+      color: #94A3B8;
+      font-size: 14px;
+    }
     main {
-      max-width: 760px;
+      max-width: 780px;
       margin: 32px auto;
       padding: 0 20px;
     }
@@ -49,9 +54,16 @@
       padding-left: 12px;
       margin-top: 0;
     }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
     a {
       color: var(--emerald);
       text-decoration: none;
+      font-weight: 600;
     }
     a:hover {
       text-decoration: underline;
@@ -67,50 +79,64 @@
 <body>
   <header>
     <h1>プライバシーポリシー ＆ 医療免責事項</h1>
-    <p>Health Note（ヘルスノート）</p>
+    <p>Health Note（ヘルスノート）｜最終改定日：2026年10月</p>
   </header>
   <main>
     <div class="card">
       <h2>1. 開発者サーバーの不使用（完全サーバーレス設計）</h2>
-      <p>本アプリは、開発者側で管理・運用する外部データベースやWebサーバーを一切持たない完全サーバーレス設計を採用しています。お客様の食事記録、身体データ、ヘルスケア情報、チャット履歴が開発者のサーバーに収集・送信・保存されることは一切ありません。</p>
+      <p>本アプリ（Health Note / ヘルスノート）は、開発者側で管理・運用する外部データベースやWebサーバーを一切持たない完全サーバーレス設計を採用しています。お客様の食事記録、身体データ、健康診断結果、医療費明細、服薬状況、チャット履歴が開発者のサーバーに収集・送信・保存されることは一切ありません。</p>
     </div>
 
     <div class="card">
-      <h2>2. データの保存と同期（Apple CloudKit）</h2>
+      <h2>2. データの保存・同期（Apple CloudKit）および削除方法</h2>
       <p>アプリ内で記録されたすべてのデータは、お客様ご自身のiOS端末内、およびお客様個人のiCloudアカウント（Apple CloudKit Private Database）にのみ暗号化されて保存・同期されます。開発者を含め第三者がこれらのデータにアクセスすることは不可能です。</p>
-      <p>また、アプリ内の「設定」＞「全データを完全に初期化・削除」を実行することで、いつでもお客様ご自身の操作ですべてのデータを完全に消去することができます。</p>
+      <p>また、アプリ内の「設定」＞「全データを完全に初期化・削除」を実行することで、いつでもお客様ご自身の操作ですべての個人データおよび保存設定を完全に消去することができます。</p>
     </div>
 
     <div class="card">
       <h2>3. Apple HealthKit（ヘルスケア）データの取り扱い</h2>
-      <p>お客様が明示的に許可した場合に限り、Apple HealthKitから歩数、消費エネルギー、心拍数、睡眠時間データを読み取り、アプリ内のサマリ画面に表示します。また、記録した食事のカロリー・PFC栄養素をHealthKitへ書き込みます。HealthKitから取得したデータを広告・マーケティング目的で使用したり、外部の第三者へ売却・共有することは一切ありません。</p>
+      <p>お客様が明示的にアクセスを許可した場合に限り、以下の項目についてApple HealthKitと連携します。</p>
+      <ul>
+        <li><strong>読み取り項目</strong>：歩数、消費エネルギー（アクティブエネルギーおよび安静時エネルギー）、心拍数、睡眠分析（睡眠時間）、体重、体脂肪率（アプリ内のサマリ・マイカルテ・月間カレンダーへの表示目的のみに使用）</li>
+        <li><strong>書き込み項目</strong>：食事で記録した摂取エネルギー（kcal）、タンパク質（g）、脂質（g）、炭水化物（g）</li>
+      </ul>
+      <p><strong>【厳格事項（App Store Review Guideline 5.1.3 準拠）】</strong>：Apple HealthKitから取得したいかなるデータも、広告配信・ターゲティング・マーケティング・データマイニング目的で使用することはなく、第三者へ売却・開示・共有することは一切ありません。</p>
     </div>
 
     <div class="card">
       <h2>4. 任意の第三者AIサービス（Google Gemini API）の利用について</h2>
-      <p>お客様が任意で設定したGoogle Gemini APIキーは、iOS端末のセキュア領域（Keychain）にのみ暗号化保存されます。AI写真解析およびAIアドバイザー機能を使用する際、解析対象のデータは端末からGoogleのAPIエンドポイントへ直接HTTPS通信で送信されます。</p>
-      <p>※Google AI Studioの無料枠（Free Tier）のAPIキーをご利用の場合、Googleの利用規約（Gemini API Additional Terms of Service）に基づき、送信されたデータがGoogleのモデル改善に利用される場合があります。詳細はGoogleの公式規約をご確認ください。</p>
+      <p>お客様が任意で設定したGoogle Gemini APIキーは、iOS端末のセキュア領域（Keychain）にのみ暗号化保存されます。食事写真解析、栄養総括評価、健診結果表・医療費領収書/明細書の画像自動読取補助、およびAIアドバイザー相談機能を使用する際、解析対象のデータはお客様の端末からGoogleのAPIエンドポイントへ直接HTTPS暗号化通信で送信されます。</p>
+      <p>なお、健診結果表や医療費領収書・明細書の読み取り補助機能においては、受診者の氏名や被保険者記号・番号などの個人識別情報を抽出・保存しないよう制御しています。</p>
+      <p>※Google AI Studioの無料枠（Free Tier）のAPIキーをご利用の場合、Googleの利用規約（Gemini API Additional Terms of Service）に基づき、送信されたデータがGoogleのモデル改善に利用される場合があります。学習利用を希望されない場合は、Google Cloudの有料従量課金プロジェクトで発行されたAPIキーをご利用いただくか、AI機能を使用せず手動記録機能をご利用ください。</p>
     </div>
 
     <div class="card">
-      <h2>5. 広告配信（Google AdMob）について</h2>
-      <p>本アプリを無料で提供・維持するため、第三者配信事業者である Google AdMob のバナー広告を利用しています。iOSのApp Tracking Transparency（ATT）に基づき、お客様が許可された場合に限り広告識別子（IDFA）が広告の最適化に利用されます。なお、Apple HealthKitのデータやアプリ内に記録された食事・マイカルテ情報が広告目的で利用・共有されることは一切ありません。</p>
+      <h2>5. 広告配信（Google AdMob）およびアプリ内課金（Proプラン）</h2>
+      <p>本アプリを無料で提供・維持するため、第三者配信事業者である Google AdMob のバナー広告を利用しています。iOSのApp Tracking Transparency（ATT）フレームワークに基づき、お客様が許可された場合に限り広告識別子（IDFA）および広告データ（デバイスID・広告インタラクション）が広告の配信・最適化に利用されます。許可しない場合でもすべての機能をご利用いただけます。なお、Apple HealthKitのデータやアプリ内に記録された健康・食事・医療費情報が広告目的で利用・共有されることは一切ありません。</p>
+      <p>また、アプリ内課金（Apple StoreKit 2）による買い切りプラン「Health Note Pro」をご購入いただくことで、すべての広告を永久に非表示にすることができます。決済処理はAppleのApp Store決済基盤を通じて行われ、開発者がお客様のクレジットカード情報等を取得することはありません。</p>
     </div>
 
     <div class="card">
       <h2>6. 医療免責事項および公的出典（医師法・薬機法・Guideline 1.4.1 準拠）</h2>
-      <p>本アプリは、一般的な生活習慣の改善、健康維持および栄養管理をサポートするセルフケア・ツールであり、医療機器ではありません。</p>
+      <p>本アプリは、一般的な生活習慣の改善、健康維持および栄養・医療費記録をサポートするセルフケア・ツールであり、医療機器または医療提供サービスではありません。</p>
       <ul>
-        <li><strong>医師法第17条に基づく免責</strong>：本アプリ内のAIアドバイザーや食事解析結果は、医師や医療専門家による診断・治療・処方の代替となるものではありません。体調に異変がある場合や持病・服薬中の方は、必ず医師または専門医療機関にご相談ください。</li>
-        <li><strong>薬機法に基づく表記</strong>：本アプリで提示される栄養素や食材に関する情報は一般的な栄養学上の知見であり、特定の疾病の治療・予防や医薬品的な効能効果を標榜するものではありません。</li>
-        <li><strong>公的出典・参考基準</strong>：本アプリ内のBMI計算式（体重kg ÷ [身長m]²、普通体重18.5〜25.0未満）およびPFC栄養目標の参考値は、以下の公的統計基準に基づいています。
+        <li><strong>医師法第17条に基づく免責</strong>：本アプリ内のAIアドバイザー、食事栄養評価、健診数値表示その他のすべての情報は、医師、薬剤師、管理栄養士その他の医療専門家による医学的判断・診断・治療・処方・服薬指示の代替となるものではありません。体調に異変や痛みを感じた場合、持病をお持ちの場合、妊娠中または服薬中の方は、自己判断を行わず必ず主治医や専門医療機関にご相談ください。</li>
+        <li><strong>薬機法に基づく表記</strong>：本アプリで提示される栄養素、食材、サプリメント等に関する情報は一般的な栄養学・公的統計上の知見であり、特定の疾病の治療・予防や医薬品的な効能効果を保証・標榜するものではありません。</li>
+        <li><strong>公的出典・参考基準（Guideline 1.4.1 準拠）</strong>：本アプリ内のBMI計算式（体重kg ÷ [身長m]²、普通体重18.5〜25.0未満）、PFC栄養目標、健康診断項目の一般的な基準範囲、および医療費控除の集計目安は、以下の公的機関が公開する統計基準・案内情報に基づいています。
           <ul>
             <li><a href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html" target="_blank" rel="noopener">厚生労働省「日本人の食事摂取基準」</a></li>
-            <li><a href="https://www.e-healthnet.mhlw.go.jp/information/dictionary/metabolic/ym-002.html" target="_blank" rel="noopener">厚生労働省 e-ヘルスネット「BMI（体格指数）の算出と判定基準」</a></li>
+            <li><a href="https://www.e-healthnet.mhlw.go.jp/information/dictionary/metabolic/ym-002.html" target="_blank" rel="noopener">厚生労働省 健康情報サイト「BMI（体格指数）の算出と判定基準」</a></li>
             <li><a href="https://www.mext.go.jp/a_menu/syokuhinseibun/index.htm" target="_blank" rel="noopener">文部科学省「日本食品標準成分表」</a></li>
+            <li><a href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000194155.html" target="_blank" rel="noopener">厚生労働省「標準的な健診・保健指導プログラム」</a></li>
+            <li><a href="https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1120.htm" target="_blank" rel="noopener">国税庁 タックスアンサー「No.1120 医療費を支払ったとき（医療費控除）」</a></li>
           </ul>
         </li>
       </ul>
+    </div>
+
+    <div class="card">
+      <h2>7. お問い合わせ先</h2>
+      <p>本ポリシーに関するお問い合わせは、<a href="https://github.com/lldkinn9/Health_Note/issues" target="_blank" rel="noopener">Health Note 公式サポート（GitHub Issues）</a>よりご連絡ください。</p>
     </div>
 
     <p><a href="./index.html">← サポートトップページへ戻る</a></p>
@@ -120,4 +146,3 @@
   </footer>
 </body>
 </html>
-

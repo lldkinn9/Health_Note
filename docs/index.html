@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Health Note（ヘルスノート） - サポート＆公式ガイド</title>
+  <title>Health Note（ヘルスノート） - 公式サポート＆ガイド</title>
   <style>
     :root {
       --emerald: #10B981;
@@ -19,7 +19,7 @@
       color: var(--text);
       margin: 0;
       padding: 0;
-      line-height: 1.7;
+      line-height: 1.75;
     }
     header {
       background: var(--navy);
@@ -37,7 +37,7 @@
       font-size: 15px;
     }
     main {
-      max-width: 760px;
+      max-width: 780px;
       margin: 32px auto;
       padding: 0 20px;
     }
@@ -57,6 +57,9 @@
     ul {
       padding-left: 20px;
     }
+    li {
+      margin-bottom: 8px;
+    }
     a {
       color: var(--emerald);
       text-decoration: none;
@@ -64,6 +67,13 @@
     }
     a:hover {
       text-decoration: underline;
+    }
+    .qa-item {
+      margin-bottom: 18px;
+    }
+    .qa-q {
+      font-weight: 700;
+      color: var(--navy);
     }
     footer {
       text-align: center;
@@ -76,37 +86,57 @@
 <body>
   <header>
     <h1>💚 Health Note（ヘルスノート）</h1>
-    <p>iOSネイティブ 食事・PFCバランス・健康管理アプリ 公式サポートページ</p>
+    <p>iOSネイティブ 食事・栄養・健診・医療費・服薬管理アプリ 公式サポートページ</p>
   </header>
   <main>
     <div class="card">
-      <h2>アプリ概要</h2>
-      <p><strong>Health Note（ヘルスノート）</strong>は、日々の食事記録、PFC（タンパク質・脂質・炭水化物）バランスの可視化、Apple ヘルスケア（HealthKit）と連携した消費カロリー・歩数・睡眠の確認、および毎日の服薬・サプリメント習慣のチェックを行えるセルフケアアプリです。</p>
+      <h2>アプリ概要・主な機能</h2>
+      <p><strong>Health Note（ヘルスノート）</strong>は、日々の食事・PFC栄養バランスの管理から、Apple ヘルスケア（HealthKit）連携、健康診断の検査結果管理、医療費ノート集計、毎日の服薬・サプリメント記録、月間スタンプカレンダーまでをひとつに統合したセルフケアアプリです。</p>
       <ul>
-        <li><strong>完全無料・広告なし・サーバーレス設計</strong>：すべてのデータはお客様の端末内および個人のiCloud（CloudKit Private Database）にのみ安全に保管されます。</li>
-        <li><strong>ホーム画面ウィジェット対応</strong>：本日の摂取・消費カロリーとPFCバランスをホーム画面から一目で確認できます。</li>
-        <li><strong>AI拡張機能（任意オプション）</strong>：ご自身のGoogle Gemini APIキーをお持ちの方は、設定画面で登録することで写真からの食事解析やAIアドバイザー機能をご利用いただけます。</li>
+        <li><strong>サーバーレス高プライバシー設計</strong>：開発者側の外部サーバーは一切使用せず、すべての健康記録はお客様のiPhone端末内およびご自身のiCloud（CloudKit Private Database）にのみ安全に保管されます。</li>
+        <li><strong>食事ログ＆PFCバランス分析</strong>：毎日の食事カロリー・タンパク質（P）・脂質（F）・炭水化物（C）を分かりやすく可視化。記録後の編集にも対応しています。</li>
+        <li><strong>Apple ヘルスケア（HealthKit）双方向連携</strong>：歩数・消費カロリー（活動＋安静時）・心拍数・睡眠時間・体重・体脂肪率を自動取得し、記録した食事のカロリー・PFC栄養素をヘルスケアへ書き込みます。</li>
+        <li><strong>マイカルテ・健診結果・医療費ノート</strong>：基本プロフィール・簡易問診、服薬・サプリメント管理（起床/朝/昼/夜/就寝前・容量単位設定）、健康診断の検査値記録、確定申告・年度管理に便利な医療費集計（1月開始／4月開始切替対応）を搭載。</li>
+        <li><strong>月間スタンプカレンダー＆ホーム画面横長ウィジェット</strong>：服薬完了日（💊）や受診・検査日（🩺）をカレンダーのスタンプで一目で振り返り可能。ホーム画面ウィジェットから摂取・消費カロリー、前回食事からの経過時間、PFCバランスをすぐ確認できます。</li>
+        <li><strong>AI拡張機能（任意オプション）</strong>：ご自身のGoogle Gemini APIキーをお持ちの方は、設定画面で登録することで「食事写真の自動栄養解析」「本日のAI食事総括・栄養評価」「健診結果表・医療費領収書/明細書の画像自動読取」「マイカルテ＆服薬連動AIアドバイザー」をご利用いただけます。</li>
+        <li><strong>基本無料 ＋ Pro買い切りオプション</strong>：すべての機能は無料でご利用いただけます。画面下部のバナー広告を非表示にしたい場合は、1回買い切りの「Health Note Pro（¥500・税込）」へいつでもアップグレード可能です（月額課金は一切ありません）。</li>
       </ul>
     </div>
 
     <div class="card">
       <h2>よくあるご質問（FAQ）</h2>
-      <p><strong>Q. APIキーを登録しなくても使えますか？</strong><br>
-      A. はい、APIキーが未登録でも、手動での食事・カロリー記録、PFCバランス分析、Appleヘルスケア連携、服薬チェック、マイカルテ管理などすべての基本機能を完全無料・制限なしでご利用いただけます。</p>
 
-      <p><strong>Q. 記録したデータをすべて消去したい場合はどうすればよいですか？</strong><br>
-      A. アプリ内の「設定」タブ ＞「全データを完全に初期化・削除」をタップすることで、端末内およびiCloud同期データをいつでも完全に消去できます。</p>
+      <div class="qa-item">
+        <div class="qa-q">Q. Gemini APIキーを登録しなくてもすべての機能を使えますか？</div>
+        <div>A. はい。APIキーは上級者向けの任意オプションです。未登録のままでも、手動での食事・カロリー記録、PFCバランス分析、Appleヘルスケア連携、健診結果・医療費ノート、服薬・サプリメント記録、月間カレンダー、ウィジェットなどすべての機能を制限なしでご利用いただけます。</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q">Q. Apple ヘルスケア（HealthKit）のデータが反映されない場合は？</div>
+        <div>A. iOSの「設定」アプリ ＞「アプリ」＞「ヘルスケア」＞「データアクセスとデバイス」＞「Health Note」を開き、読み取り・書き込みたい項目がオンになっているかご確認ください。その後、アプリ内の「設定」タブ ＞「ヘルスケアの最新データを今すぐ再同期」をタップすると最新値が反映されます。</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q">Q. 機種変更や再インストール後に「Health Note Pro（広告非表示）」を引き継ぐには？</div>
+        <div>A. ご購入時と同じAppleアカウントでサインインした状態で、アプリ内の「設定」タブ ＞「購入を復元する（機種変更・再インストール時）」をタップしてください。追加費用なしで即座にProプランが復元されます。</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q">Q. 記録したデータをすべて消去・初期化したい場合は？</div>
+        <div>A. アプリ内の「設定」タブ ＞「全データを完全に初期化・削除」を実行することで、端末内およびiCloud同期データをいつでも完全に抹消できます。</div>
+      </div>
     </div>
 
     <div class="card">
       <h2>プライバシーポリシー・医療免責事項</h2>
-      <p>本アプリのプライバシー保護方針、および医師法・薬機法に基づく医療免責事項・栄養基準の公的出典については、以下のページをご確認ください。</p>
+      <p>本アプリのプライバシー保護方針、Apple HealthKit・広告配信（AdMob）・任意AI利用に関する取り扱い、および医師法・薬機法に基づく医療免責事項・各種基準値の公的出典については、以下のページをご確認ください。</p>
       <p>👉 <a href="./privacy.html">プライバシーポリシーおよび医療免責事項を読む</a></p>
     </div>
 
     <div class="card">
-      <h2>お問い合わせ・サポート</h2>
-      <p>アプリの不具合報告やご質問がございましたら、GitHubリポジトリの Issues または開発者連絡先までお問い合わせください。</p>
+      <h2>お問い合わせ・サポート窓口</h2>
+      <p>アプリに関するご質問、不具合のご報告、ご要望などがございましたら、以下の公式サポート窓口（GitHub Issues）よりお気軽にお問い合わせください。</p>
+      <p>📩 サポート受付：<a href="https://github.com/lldkinn9/Health_Note/issues" target="_blank" rel="noopener">Health Note 公式サポート（GitHub Issues）</a></p>
     </div>
   </main>
   <footer>
@@ -114,4 +144,3 @@
   </footer>
 </body>
 </html>
-

@@ -289,7 +289,7 @@ public struct SettingsView: View {
     // MARK: - AIフッター説明（Guideline 3.1.1 準拠：外部リンク完全排除・任意機能の徹底）
     private var aiFooterView: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("【上級者向け任意機能】\n本アプリはAPIキーが未登録の場合でも、すべての食事記録、カロリー計算、PFCバランス分析、HealthKitバイタル同期、服薬管理が完全無料・制限なしでご利用いただけます。\n\nGoogle Gemini APIキーをお持ちの場合、キーを登録することで写真からの食事自動解析やAI相談などの追加サポート機能を活用できます。入力されたキーは端末のセキュア領域（Keychain）にのみ厳重に暗号化保存されます。")
+            Text("【上級者向け任意機能】\n本アプリはAPIキーが未登録の場合でも、すべての食事記録、カロリー計算、PFCバランス分析、HealthKitバイタル同期、健診結果・医療費ノート管理、服薬管理、月間カレンダーが完全無料・制限なしでご利用いただけます。\n\nGoogle Gemini APIキーをお持ちの場合、キーを登録することで食事写真の自動栄養解析、本日のAI食事総括評価、健診結果・医療費領収書/明細書の画像読取補助、AIアドバイザー相談などの追加サポート機能を活用できます。入力されたキーは端末のセキュア領域（Keychain）にのみ厳重に暗号化保存されます。")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
                 .lineSpacing(3)
@@ -386,12 +386,12 @@ public struct SettingsView: View {
                     Divider()
                         .padding(.vertical, 4)
 
-                    // App Store Guideline 1.4.1 準拠：栄養基準・BMI算出根拠の公的出典および参照リンク
+                    // App Store Guideline 1.4.1 準拠：栄養基準・BMI・健診・医療費控除の公的出典および参照リンク
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("5. 【栄養指標・BMI計算式の公的出典（Guideline 1.4.1 準拠）】")
+                        Text("5. 【栄養指標・BMI・健診基準・医療費控除の公的出典（Guideline 1.4.1 準拠）】")
                             .font(.system(size: 14, weight: .bold))
 
-                        Text("本アプリにおけるBMI計算式（体重kg ÷ [身長m]²、普通体重 18.5〜25.0未満）およびPFC栄養バランス・摂取カロリー等の参考指標は、以下の公的機関が公開する一般的な健康・栄養統計基準に基づいています。")
+                        Text("本アプリにおけるBMI計算式（体重kg ÷ [身長m]²、普通体重 18.5〜25.0未満）、PFC栄養バランス・摂取カロリーの参考指標、健康診断項目の一般的な基準範囲、および医療費控除の集計目安は、以下の公的機関が公開する統計基準・案内情報に基づいています。")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                             .lineSpacing(4)
@@ -425,6 +425,26 @@ public struct SettingsView: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(AppTheme.emerald)
                         }
+
+                        Link(destination: URL(string: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000194155.html")!) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "link")
+                                Text("厚生労働省「標準的な健診・保健指導プログラム」")
+                                    .underline()
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppTheme.emerald)
+                        }
+
+                        Link(destination: URL(string: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1120.htm")!) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "link")
+                                Text("国税庁 タックスアンサー「No.1120 医療費を支払ったとき（医療費控除）」")
+                                    .underline()
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppTheme.emerald)
+                        }
                     }
                 }
                 .padding(20)
@@ -446,21 +466,21 @@ public struct SettingsView: View {
                     本アプリは、開発者インフラコスト0円・完全サーバーレスの設計思想を採用しており、利用者の個人情報とプライバシーを最大限に尊重します。
 
                     1. 開発者サーバーの不使用（Guideline 5.1.1 準拠）:
-                    開発者側で管理・運用する外部データベースやWebサーバーは一切存在しません。お客様の食事記録、身体データ、チャット履歴が開発者のサーバーに収集・送信されることはありません。
+                    開発者側で管理・運用する外部データベースやWebサーバーは一切存在しません。お客様の食事記録、身体データ、健診・医療費記録、服薬状況、チャット履歴が開発者のサーバーに収集・送信されることはありません。
 
                     2. データ保存と同期（Apple CloudKit）:
                     記録されたすべてのデータは、お客様自身の端末内およびお客様個人のiCloud（CloudKit Private Database）にのみ暗号化保存・端末間同期されます。開発者を含め第三者がこれらを閲覧することは不可能です。
 
                     3. 第三者AIサービス（Google Gemini API）の利用と規約:
                     お客様が任意で設定したGoogle Gemini APIキーは、端末のセキュア領域（iOS Keychain）に暗号化保存されます。
-                    AI解析および相談機能を利用する際、解析対象のデータは端末からGoogleのAPIエンドポイントへ直接HTTPS暗号化通信で送信されます。
+                    AI解析および相談機能を利用する際、解析対象のデータは端末からGoogleのAPIエンドポイントへ直接HTTPS暗号化通信で送信されます（健診結果表や医療費領収書・明細書の読み取り補助では、氏名・保険証番号等の個人識別情報を抽出・保存しないよう制御しています）。
                     ※Google AI Studioの無料APIキー（Free Tier）をご利用の場合、Googleの利用規約（Gemini API Additional Terms）に基づき、送信されたプロンプトや画像がGoogleのAIモデル改善・学習に利用される場合があります。学習利用を希望されない場合は、Google Cloudの有料従量課金プロジェクトで発行されたキーをご利用いただくか、AI機能を使用せず手動記録機能をご利用ください。
 
-                    4. ヘルスケアデータ（Apple HealthKit）:
-                    Apple HealthKitから取得したバイタル情報は、アプリ内のダッシュボード表示にのみ使用され、外部への提供や広告等の目的で利用されることは一切ありません。
+                    4. ヘルスケアデータ（Apple HealthKit / Guideline 5.1.3 準拠）:
+                    お客様の明示的な許可を得た場合に限り、Apple HealthKitから歩数、消費エネルギー、心拍数、睡眠時間、体重、体脂肪率を読み取り、アプリ内のサマリ・マイカルテ・カレンダーに表示します。また、記録した食事のカロリー・PFC栄養素をHealthKitへ書き込みます。HealthKitから取得した情報を広告・マーケティング目的で使用したり、第三者へ売却・共有することは一切ありません。
 
-                    5. 広告配信（Google AdMob）について:
-                    本アプリを無料で提供し続けるため、画面下部にGoogle AdMobによるバナー広告を表示します（Proプランへのアップグレードにより完全非表示化が可能）。広告配信にあたり、iOSのApp Tracking Transparency（ATT）フレームワークに基づきお客様の許可を得た場合にのみ広告識別子（IDFA）が利用されます（HealthKitデータや食事・カルテの個人記録が広告ターゲティングに使われることは一切ありません）。
+                    5. 広告配信（Google AdMob）およびアプリ内課金（Proプラン）:
+                    本アプリを無料で提供し続けるため、画面下部にGoogle AdMobによるバナー広告を表示します（Apple StoreKit 2による買い切りの「Health Note Pro」へアップグレードすることで永久に広告非表示化が可能）。広告配信にあたり、iOSのApp Tracking Transparency（ATT）フレームワークに基づきお客様の許可を得た場合にのみ広告識別子（IDFA）が利用されます（HealthKitデータやアプリ内の健康記録が広告ターゲティングに使われることは一切ありません）。
                     """)
                     .font(.system(size: 13))
                     .lineSpacing(5)
