@@ -243,7 +243,7 @@ public struct SettingsView: View {
                     HStack {
                         Text("バージョン")
                         Spacer()
-                        Text("1.0.0 (Build 1)")
+                        Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                             .foregroundColor(.secondary)
                     }
                 }
