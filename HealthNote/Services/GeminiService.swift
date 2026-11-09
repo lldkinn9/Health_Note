@@ -5,6 +5,7 @@ import UIKit
 
 public enum GeminiError: LocalizedError {
     case missingApiKey
+    case consentRequired
     case invalidResponse
     case apiError(statusCode: Int, message: String)
     case allModelsFailed(lastError: String)
@@ -15,6 +16,8 @@ public enum GeminiError: LocalizedError {
         switch self {
         case .missingApiKey:
             return "本機能はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。"
+        case .consentRequired:
+            return "第三者AI（Google Gemini API / Google LLC）へデータを送信する前に、送信データの詳細および送信先に関する確認と明示的な同意（許可）が必要です。"
         case .invalidResponse:
             return "Gemini APIからの応答が不正です。通信状態を確認してください。"
         case .apiError(let code, let message):
@@ -155,6 +158,18 @@ public struct MedicalExpenseAnalysisResult: Codable {
 /// - AQ... 形式を含む最新APIキー仕様の安全なサニタイズ＆ヘッダー送信対応
 public final class GeminiService {
     public static let shared = GeminiService()
+
+    /// Guideline 5.1.1(i) & 5.1.2(i) 準拠：第三者AI（Google Gemini API / Google LLC）へのデータ送信に対する明示的なユーザー許可フラグ
+    public static let aiConsentUserDefaultsKey = "hasUserConsentedToThirdPartyAI_v1"
+
+    public var hasUserConsentedToDataSharing: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: Self.aiConsentUserDefaultsKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.aiConsentUserDefaultsKey)
+        }
+    }
 
     /// models.list から動的に取得した有効モデルのキャッシュ
     private var cachedDynamicModels: [String] = []
@@ -436,6 +451,9 @@ public final class GeminiService {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
         }
+        guard hasUserConsentedToDataSharing else {
+            throw GeminiError.consentRequired
+        }
 
         let optimizedData = optimizeImageData(imageData)
         let base64String = optimizedData.base64EncodedString()
@@ -499,6 +517,9 @@ public final class GeminiService {
     ) async throws -> String {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
+        }
+        guard hasUserConsentedToDataSharing else {
+            throw GeminiError.consentRequired
         }
 
         var systemInstruction = """
@@ -593,6 +614,9 @@ public final class GeminiService {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
         }
+        guard hasUserConsentedToDataSharing else {
+            throw GeminiError.consentRequired
+        }
 
         let totalCal = meals.reduce(0) { $0 + $1.calories }
         let totalP = meals.reduce(0) { $0 + $1.protein }
@@ -653,6 +677,9 @@ public final class GeminiService {
     public func analyzeHealthCheckPhoto(imageData: Data) async throws -> HealthCheckAnalysisResult {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
+        }
+        guard hasUserConsentedToDataSharing else {
+            throw GeminiError.consentRequired
         }
 
         let optimizedData = optimizeImageData(imageData)
@@ -759,6 +786,9 @@ public final class GeminiService {
     public func analyzeMedicalReceiptPhoto(imageData: Data) async throws -> MedicalExpenseAnalysisResult {
         guard let apiKey = getApiKey() else {
             throw GeminiError.missingApiKey
+        }
+        guard hasUserConsentedToDataSharing else {
+            throw GeminiError.consentRequired
         }
 
         let optimizedData = optimizeImageData(imageData)
@@ -974,11 +1004,18 @@ public final class DailyEvaluationCoordinator: ObservableObject {
             return
         }
 
-        // APIキー未設定時は自動更新時は静かにスキップ（手動ボタン押下時のみ案内を表示）
+        // APIキー未設定時または第三者AIへのデータ送信未許可時は自動更新時は静かにスキップ（手動ボタン押下時のみ案内を表示）
         guard GeminiService.shared.getApiKey() != nil else {
             evaluatingDateKeys.remove(dateKey)
             if showMissingKeyError {
                 errorMessageByDateKey[dateKey] = GeminiError.missingApiKey.localizedDescription
+            }
+            return
+        }
+        guard GeminiService.shared.hasUserConsentedToDataSharing else {
+            evaluatingDateKeys.remove(dateKey)
+            if showMissingKeyError {
+                errorMessageByDateKey[dateKey] = GeminiError.consentRequired.localizedDescription
             }
             return
         }

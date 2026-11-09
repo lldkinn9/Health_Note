@@ -25,8 +25,10 @@ public struct AddMealView: View {
     @State private var isAnalyzing: Bool = false
     @State private var errorMessage: String? = nil
 
-    // 食品辞書・過去履歴ピッカー
+    // 食品辞書・過去履歴ピッカー & AIデータ送信同意シート
     @State private var showingFoodDictionary: Bool = false
+    @State private var showingAIConsentSheet: Bool = false
+    @AppStorage(GeminiService.aiConsentUserDefaultsKey) private var hasConsentedToThirdPartyAI: Bool = false
 
     public init(
         defaultMealType: MealType = .lunch,
@@ -144,7 +146,7 @@ public struct AddMealView: View {
 
                         if selectedImageData != nil && GeminiService.shared.getApiKey() != nil {
                             Button(action: {
-                                analyzeSelectedImage()
+                                requestAnalyzeSelectedImage()
                             }) {
                                 HStack {
                                     Spacer()
@@ -152,8 +154,8 @@ public struct AddMealView: View {
                                         ProgressView()
                                             .tint(.white)
                                     } else {
-                                        Label("写真をAI自動解析する", systemImage: "sparkles")
-                                            .font(.system(size: 14, weight: .bold))
+                                        Label("写真をAI自動解析する（Google Gemini APIへ送信）", systemImage: "sparkles")
+                                            .font(.system(size: 13, weight: .bold))
                                     }
                                     Spacer()
                                 }
@@ -161,6 +163,10 @@ public struct AddMealView: View {
                             .buttonStyle(.borderedProminent)
                             .tint(.indigo)
                             .disabled(isAnalyzing)
+
+                            Text("※解析実行時、選択した食事写真が Google LLC（Google Gemini API）へ暗号化送信されます。")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
                         }
 
                         if selectedImageData != nil && GeminiService.shared.getApiKey() == nil {
@@ -270,9 +276,8 @@ public struct AddMealView: View {
                 Task {
                     if let data = try? await newItem?.loadTransferable(type: Data.self) {
                         self.selectedImageData = data
-                        // APIキー登録時のみ自動解析を実行
                         if GeminiService.shared.getApiKey() != nil {
-                            analyzeSelectedImage()
+                            requestAnalyzeSelectedImage()
                         }
                     }
                 }
@@ -286,12 +291,19 @@ public struct AddMealView: View {
                     self.carbs = selectedC
                 }
             }
+            .sheet(isPresented: $showingAIConsentSheet) {
+                ThirdPartyAIConsentSheet(
+                    onAllow: {
+                        analyzeSelectedImage()
+                    }
+                )
+            }
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraImagePicker { capturedImage in
                     if let data = capturedImage.jpegData(compressionQuality: 0.85) {
                         self.selectedImageData = data
                         if GeminiService.shared.getApiKey() != nil {
-                            analyzeSelectedImage()
+                            requestAnalyzeSelectedImage()
                         }
                     }
                 }
@@ -308,7 +320,16 @@ public struct AddMealView: View {
         }
     }
 
-    // MARK: - Gemini 写真解析処理
+    // MARK: - Gemini 写真解析処理（Guideline 5.1.2(i) 事前許可確認付き）
+    private func requestAnalyzeSelectedImage() {
+        guard selectedImageData != nil else { return }
+        if !hasConsentedToThirdPartyAI {
+            showingAIConsentSheet = true
+        } else {
+            analyzeSelectedImage()
+        }
+    }
+
     private func analyzeSelectedImage() {
         guard let data = selectedImageData else { return }
         isAnalyzing = true

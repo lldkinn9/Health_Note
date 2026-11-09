@@ -12,6 +12,8 @@ public struct MealsView: View {
     @State private var showingAddMeal: Bool = false
     @State private var editingMeal: Meal? = nil
     @State private var defaultMealTypeToAdd: MealType = .lunch
+    @State private var showingAIConsentSheet: Bool = false
+    @AppStorage(GeminiService.aiConsentUserDefaultsKey) private var hasConsentedToThirdPartyAI: Bool = false
     @ObservedObject private var evaluationCoordinator = DailyEvaluationCoordinator.shared
 
     public init() {}
@@ -77,6 +79,13 @@ public struct MealsView: View {
             }
             .sheet(item: $editingMeal) { meal in
                 AddMealView(mealToEdit: meal)
+            }
+            .sheet(isPresented: $showingAIConsentSheet) {
+                ThirdPartyAIConsentSheet(
+                    onAllow: {
+                        generateAdvice()
+                    }
+                )
             }
             .onAppear {
                 autoRefreshAdviceIfNeeded()
@@ -398,14 +407,33 @@ public struct MealsView: View {
                 VStack(spacing: 8) {
                     let hasApiKey = GeminiService.shared.getApiKey() != nil
                     if hasApiKey {
-                        Text(isGenerating ? "登録された食事内容をもとにAI評価を作成しています..." : "食事を記録すると、AIが1日の栄養バランスを自動で総合評価します。")
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
+                        if !hasConsentedToThirdPartyAI {
+                            Text("本日の食事記録および身体プロフィール要約を Google LLC（Google Gemini API）へ送信してAI栄養評価を生成するには、事前の許可が必要です。")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(2)
+
+                            Button(action: { showingAIConsentSheet = true }) {
+                                Label("送信内容・送信先を確認してAI評価を許可する", systemImage: "hand.raised.shield.fill")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(AppTheme.emerald)
+                                    .clipShape(Capsule())
+                            }
+                            .padding(.top, 2)
+                        } else {
+                            Text(isGenerating ? "登録された食事内容をもとにAI評価を作成しています..." : "食事を記録すると、AIが1日の栄養バランスを自動で総合評価します。")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                        }
                     } else {
-                        Text("本機能はAPIキーをお持ちの場合に、設定画面でキーを設定することで使用できる任意の機能です。")
+                        Text("本機能はAPIキーをお持ちの場合に、設定画面でキーを設定し、Google LLC（Google Gemini API）へのデータ送信に同意することで使用できる任意の機能です。")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -435,6 +463,10 @@ public struct MealsView: View {
     // MARK: - AIアドバイス生成（手動リトライ ＆ 未評価時の自動補完）
     private func generateAdvice() {
         guard !todaysMeals.isEmpty else { return }
+        if !hasConsentedToThirdPartyAI {
+            showingAIConsentSheet = true
+            return
+        }
         evaluationCoordinator.refreshEvaluation(
             for: selectedDate,
             context: modelContext,
@@ -445,6 +477,7 @@ public struct MealsView: View {
     private func autoRefreshAdviceIfNeeded() {
         guard !todaysMeals.isEmpty,
               GeminiService.shared.getApiKey() != nil,
+              hasConsentedToThirdPartyAI,
               !evaluationCoordinator.isEvaluating(dateKey: selectedDateKey),
               evaluationCoordinator.errorMessage(for: selectedDateKey) == nil else {
             return

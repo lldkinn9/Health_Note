@@ -23,10 +23,13 @@ public struct SettingsView: View {
     @State private var showingResetConfirmationAlert: Bool = false
     @State private var showingFinalResetAlert: Bool = false
 
-    // 規約・免責シート
+    // 規約・免責・第三者AIデータ送信同意シート
     @State private var showingPrivacySheet: Bool = false
     @State private var showingMedicalDisclaimerSheet: Bool = false
     @State private var showingProUpgradeSheet: Bool = false
+    @State private var showingAIConsentSheet: Bool = false
+    @State private var pendingActionAfterConsent: (() -> Void)? = nil
+    @AppStorage(GeminiService.aiConsentUserDefaultsKey) private var hasConsentedToThirdPartyAI: Bool = false
 
     @ObservedObject private var purchaseManager = PurchaseManager.shared
     @ObservedObject private var healthKit = HealthKitManager.shared
@@ -118,8 +121,60 @@ public struct SettingsView: View {
                     }
                 }
 
-                // 1. Google Gemini AI設定 (任意・上級者向けオプショナル機能)
+                // 1. Google Gemini AI設定 (任意・上級者向けオプショナル機能 & Guideline 5.1.2(i) 明示的同意)
                 Section(header: Text("AI拡張機能設定（任意オプション）"), footer: aiFooterView) {
+                    // Guideline 5.1.1(i) & 5.1.2(i): 送信データ・送信先（Google LLC）の明示および事前許可ステータス
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: hasConsentedToThirdPartyAI ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                                .foregroundColor(hasConsentedToThirdPartyAI ? AppTheme.emerald : .orange)
+                            Text("第三者AI（Google Gemini API）へのデータ送信許可")
+                                .font(.system(size: 13, weight: .bold))
+                            Spacer()
+                            Text(hasConsentedToThirdPartyAI ? "許可済み" : "未許可")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(hasConsentedToThirdPartyAI ? AppTheme.emerald : Color.orange)
+                                .clipShape(Capsule())
+                        }
+
+                        Text("送信先: Google LLC（Google Gemini API）\n送信データ: 相談文、食事記録・食事写真、マイカルテ（年齢・性別・身長・体重・生活習慣・アレルギー・既往歴メモ・服薬/サプリ名）、健診の検査数値サマリ、健診結果表・医療費領収書画像（氏名・保険証番号等の個人識別情報は除外）")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .lineSpacing(2)
+
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                pendingActionAfterConsent = nil
+                                showingAIConsentSheet = true
+                            }) {
+                                Label(
+                                    hasConsentedToThirdPartyAI ? "送信データの詳細・同意内容を確認" : "送信内容を確認してデータ送信を許可する",
+                                    systemImage: "hand.raised.fill"
+                                )
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(AppTheme.emerald)
+                            }
+                            .buttonStyle(.plain)
+
+                            if hasConsentedToThirdPartyAI {
+                                Spacer()
+                                Button(role: .destructive, action: {
+                                    hasConsentedToThirdPartyAI = false
+                                }) {
+                                    Text("許可を取り消す")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
+                    .padding(.vertical, 4)
+
                     HStack {
                         if isKeySecure {
                             SecureField("Gemini APIキー（任意）", text: $apiKeyInput)
@@ -280,16 +335,28 @@ public struct SettingsView: View {
             .sheet(isPresented: $showingProUpgradeSheet) {
                 ProUpgradeSheetView()
             }
+            .sheet(isPresented: $showingAIConsentSheet) {
+                ThirdPartyAIConsentSheet(
+                    onAllow: {
+                        let action = pendingActionAfterConsent
+                        pendingActionAfterConsent = nil
+                        action?()
+                    },
+                    onCancel: {
+                        pendingActionAfterConsent = nil
+                    }
+                )
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 AdBottomBannerBar()
             }
         }
     }
 
-    // MARK: - AIフッター説明（Guideline 3.1.1 準拠：外部リンク完全排除・任意機能の徹底）
+    // MARK: - AIフッター説明（Guideline 3.1.1 & 5.1.2(i) 準拠：外部リンク完全排除・任意機能と送信先の明示）
     private var aiFooterView: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("【上級者向け任意機能】\n本アプリはAPIキーが未登録の場合でも、すべての食事記録、カロリー計算、PFCバランス分析、HealthKitバイタル同期、健診結果・医療費ノート管理、服薬管理、月間カレンダーが完全無料・制限なしでご利用いただけます。\n\nGoogle Gemini APIキーをお持ちの場合、キーを登録することで食事写真の自動栄養解析、本日のAI食事総括評価、健診結果・医療費領収書/明細書の画像読取補助、AIアドバイザー相談などの追加サポート機能を活用できます。入力されたキーは端末のセキュア領域（Keychain）にのみ厳重に暗号化保存されます。")
+            Text("【上級者向け任意機能・データ送信に関する説明（Guideline 5.1.1(i) & 5.1.2(i)）】\n本アプリはAPIキーが未登録の場合でも、すべての食事記録、カロリー計算、PFCバランス分析、HealthKitバイタル同期、健診結果・医療費ノート管理、服薬管理、月間カレンダーが完全無料・制限なしでご利用いただけます。\n\nGoogle Gemini APIキーをお持ちの場合、キーを登録し「データ送信を許可」に同意いただくことで、食事写真の自動栄養解析、本日のAI食事総括評価、健診結果・医療費領収書/明細書の画像読取補助、AIアドバイザー相談を活用できます。AI機能実行時、対象データはお客様の端末から送信先である Google LLC（Google Gemini API: generativelanguage.googleapis.com）へ直接HTTPS暗号化通信で送信されます。お客様の事前の明示的な許可なしにデータが外部へ送信されることは一切ありません。")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
                 .lineSpacing(3)
@@ -306,13 +373,33 @@ public struct SettingsView: View {
         apiKeyInput = cleanKey
         KeychainManager.shared.save(key: KeychainManager.geminiApiKeyIdentifier, value: cleanKey)
         diagnosticResult = nil
-        saveSuccessAlert = true
+
+        if !cleanKey.isEmpty && !hasConsentedToThirdPartyAI {
+            pendingActionAfterConsent = {
+                saveSuccessAlert = true
+            }
+            showingAIConsentSheet = true
+        } else {
+            saveSuccessAlert = true
+        }
     }
 
     private func runModelDiagnostic() {
         let cleanKey = GeminiService.shared.sanitizeApiKey(apiKeyInput)
         apiKeyInput = cleanKey
         KeychainManager.shared.save(key: KeychainManager.geminiApiKeyIdentifier, value: cleanKey)
+
+        if !hasConsentedToThirdPartyAI {
+            pendingActionAfterConsent = {
+                executeModelDiagnostic(cleanKey: cleanKey)
+            }
+            showingAIConsentSheet = true
+        } else {
+            executeModelDiagnostic(cleanKey: cleanKey)
+        }
+    }
+
+    private func executeModelDiagnostic(cleanKey: String) {
         isTestingDiagnostic = true
         diagnosticResult = nil
 
@@ -338,9 +425,10 @@ public struct SettingsView: View {
 
         try? modelContext.save()
 
-        // KeychainのAPIキーも削除
+        // KeychainのAPIキーおよびAIデータ送信同意フラグも初期化
         KeychainManager.shared.delete(key: KeychainManager.geminiApiKeyIdentifier)
         KeychainManager.shared.delete(key: KeychainManager.geminiModelIdentifier)
+        hasConsentedToThirdPartyAI = false
         apiKeyInput = ""
 
         // 初期プロファイルの再投入
@@ -454,33 +542,41 @@ public struct SettingsView: View {
         }
     }
 
-    // MARK: - プライバシーポリシーシート（サーバーレス設計 ＆ 第三者AI規約開示）
+    // MARK: - プライバシーポリシーシート（Guideline 5.1.1(i) & 5.1.2(i) 完全準拠）
     private var privacyPolicyView: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("プライバシーポリシー")
+                    Text("プライバシーポリシー（Guideline 5.1.1(i) & 5.1.2(i) 準拠）")
                         .font(.system(size: 18, weight: .bold))
 
                     Text("""
-                    本アプリは、開発者インフラコスト0円・完全サーバーレスの設計思想を採用しており、利用者の個人情報とプライバシーを最大限に尊重します。
+                    本アプリ（Health Note / ヘルスノート）は、開発者サーバーを一切持たない完全サーバーレス設計を採用しており、利用者の個人情報とプライバシーを最大限に保護します。
 
-                    1. 開発者サーバーの不使用（Guideline 5.1.1 準拠）:
-                    開発者側で管理・運用する外部データベースやWebサーバーは一切存在しません。お客様の食事記録、身体データ、健診・医療費記録、服薬状況、チャット履歴が開発者のサーバーに収集・送信されることはありません。
+                    1. 収集・取り扱うデータと収集方法（What Data the App Collects & How It Is Collected）:
+                    • ユーザーによる手動入力データ：食事記録（料理名・カロリー・PFC）、身体・生活習慣プロフィール（年齢・性別・身長・体重・体脂肪率・活動レベル・睡眠時間・飲酒/喫煙/妊娠状況・アレルギー・既往歴メモ）、服薬・サプリメント名、健康診断の検査数値、医療費記録、AIアドバイザー相談メッセージ。
+                    • カメラ・写真ライブラリからの選択画像（任意）：食事写真、健康診断結果表の画像、医療費領収書・明細書の画像（お客様が自ら撮影または選択した場合のみ取得）。
+                    • Apple HealthKit データ（任意・明示的許可時のみ）：歩数、消費エネルギー、心拍数、睡眠時間、体重、体脂肪率の読み取り、および食事の摂取エネルギー・PFC栄養素の書き込み。
+                    • 広告配信に関する技術データ（Google AdMob SDK）：デバイス識別子（ATT許可時のみIDFA）、おおよその位置情報、広告表示・操作データ、クラッシュ・パフォーマンス診断データ。
 
-                    2. データ保存と同期（Apple CloudKit）:
-                    記録されたすべてのデータは、お客様自身の端末内およびお客様個人のiCloud（CloudKit Private Database）にのみ暗号化保存・端末間同期されます。開発者を含め第三者がこれらを閲覧することは不可能です。
+                    2. データの保存先とすべての利用目的（Storage & All Uses of Data）:
+                    • すべての健康・食事・健診・医療費記録は、お客様ご自身のiOS端末内およびお客様個人のiCloud（Apple CloudKit Private Database）にのみ暗号化保存され、日々の健康・栄養・医療費管理およびアプリ内表示の目的にのみ使用されます。開発者のサーバーへ収集・送信・保存されることは一切ありません。
+                    • お客様は「設定 ＞ 全データを完全に初期化・削除」から、いつでもすべてのデータを完全に消去できます。
 
-                    3. 第三者AIサービス（Google Gemini API）の利用と規約:
-                    お客様が任意で設定したGoogle Gemini APIキーは、端末のセキュア領域（iOS Keychain）に暗号化保存されます。
-                    AI解析および相談機能を利用する際、解析対象のデータは端末からGoogleのAPIエンドポイントへ直接HTTPS暗号化通信で送信されます（健診結果表や医療費領収書・明細書の読み取り補助では、氏名・保険証番号等の個人識別情報を抽出・保存しないよう制御しています）。
-                    ※Google AI Studioの無料APIキー（Free Tier）をご利用の場合、Googleの利用規約（Gemini API Additional Terms）に基づき、送信されたプロンプトや画像がGoogleのAIモデル改善・学習に利用される場合があります。学習利用を希望されない場合は、Google Cloudの有料従量課金プロジェクトで発行されたキーをご利用いただくか、AI機能を使用せず手動記録機能をご利用ください。
+                    3. 第三者AIサービスへのデータ送信・送信先・事前同意（Data Sharing with Third-Party AI - Guideline 5.1.2(i)）:
+                    • 初期状態（デフォルト）では、いかなるデータも第三者AIサービスへ送信されません。
+                    • お客様が任意でご自身の Google Gemini APIキーを設定し、かつアプリ内の「第三者AIへのデータ送信に関する許可確認（同意画面）」にて明示的に許可（同意）した後にAI機能を実行した場合に限り、以下のデータがお客様の端末から直接 Google LLC（Google Gemini API: generativelanguage.googleapis.com）へ暗号化通信（HTTPS/TLS）で送信されます：
+                      (a) 食事写真解析・本日のAI食事総括：選択した食事画像、本日の食事記録（料理名・カロリー・PFC）、および個人識別情報を含まない身体・生活習慣プロフィール要約。
+                      (b) 健診結果表・医療費領収書/明細書の画像AI読取補助：お客様が選択した書類画像（氏名・住所・生年月日・保険証記号番号等の個人識別情報は抽出・保存しないよう厳格に制御）。
+                      (c) AIアドバイザー相談：入力した相談メッセージ、本日の食事記録、身体・生活習慣プロフィール要約、登録中の服薬・サプリメント名、および直近の健康診断の検査数値サマリ（氏名・医療機関名・生年月日・保険証番号等の個人識別情報は一切含まれません）。
+                    • 利用目的：お客様が要求したAI栄養推定、書類の自動入力補助（OCR）、および一般的な食生活アドバイスの生成目的にのみ使用されます。
 
-                    4. ヘルスケアデータ（Apple HealthKit / Guideline 5.1.3 準拠）:
-                    お客様の明示的な許可を得た場合に限り、Apple HealthKitから歩数、消費エネルギー、心拍数、睡眠時間、体重、体脂肪率を読み取り、アプリ内のサマリ・マイカルテ・カレンダーに表示します。また、記録した食事のカロリー・PFC栄養素をHealthKitへ書き込みます。HealthKitから取得した情報を広告・マーケティング目的で使用したり、第三者へ売却・共有することは一切ありません。
+                    4. 第三者による同等以上のデータ保護の確認（Same or Equal Protection by Third Parties - Guideline 5.1.1(i) & 5.1.2(i)）:
+                    • 本アプリがデータを共有・送信する第三者（Google LLC：Google Gemini API および Google AdMob、ならびに Apple Inc.：iCloud / CloudKit）は、すべて業界標準の暗号化通信（HTTPS/TLS）および厳格なデータ保護規約・セキュリティ基準を遵守しており、本プライバシーポリシーに記載された基準および Apple App Store Review Guidelines が求める水準と同等以上のデータ保護（Same or Equal Protection）を提供していることを確認しています。
+                    • Google AI Studioの無料枠（Free Tier）APIキーをご利用の場合、Googleの利用規約に基づき送信データがGoogleのモデル改善に利用される場合があります。学習利用を希望されない場合は、Google Cloudの有料従量課金プロジェクトのAPIキーをご利用いただくか、AIデータ送信の許可をオフにして手動記録機能をご利用ください。
 
-                    5. 広告配信（Google AdMob）およびアプリ内課金（Proプラン）:
-                    本アプリを無料で提供し続けるため、画面下部にGoogle AdMobによるバナー広告を表示します（Apple StoreKit 2による買い切りの「Health Note Pro」へアップグレードすることで永久に広告非表示化が可能）。広告配信にあたり、iOSのApp Tracking Transparency（ATT）フレームワークに基づきお客様の許可を得た場合にのみ広告識別子（IDFA）が利用されます（HealthKitデータやアプリ内の健康記録が広告ターゲティングに使われることは一切ありません）。
+                    5. Apple HealthKit データの厳格保護（Guideline 5.1.3 準拠）:
+                    • Apple HealthKit から取得した歩数・消費カロリー・心拍数・睡眠時間等のバイタルデータが第三者AI（Google Gemini API）や広告事業者へ送信されることは一切ありません。また、HealthKitデータやアプリ内の健康記録を広告・マーケティング・データマイニング目的で使用・売却・共有することは一切ありません。
                     """)
                     .font(.system(size: 13))
                     .lineSpacing(5)
@@ -490,5 +586,158 @@ public struct SettingsView: View {
             .navigationTitle("プライバシーポリシー")
             .navigationBarTitleDisplayMode(.inline)
         }
+    }
+}
+
+// =============================================================================
+// MARK: - Guideline 5.1.1(i) & 5.1.2(i) 準拠：第三者AI（Google Gemini API）データ送信の明示的許可（同意）モーダル
+// =============================================================================
+public struct ThirdPartyAIConsentSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(GeminiService.aiConsentUserDefaultsKey) private var hasConsentedToThirdPartyAI: Bool = false
+
+    public var onAllow: (() -> Void)? = nil
+    public var onCancel: (() -> Void)? = nil
+
+    public init(onAllow: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
+        self.onAllow = onAllow
+        self.onCancel = onCancel
+    }
+
+    public var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    // ヘッダー
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(AppTheme.emerald.opacity(0.15))
+                                .frame(width: 48, height: 48)
+                            Image(systemName: "hand.raised.shield.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(AppTheme.emerald)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("第三者AIへのデータ送信の許可確認")
+                                .font(.system(size: 17, weight: .bold))
+                            Text("Permission to Share Data with Third-Party AI")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.bottom, 2)
+
+                    Text("任意のAI機能（AIアドバイザー相談・食事写真解析・本日のAI食事総括・健診結果/医療費明細の画像AI読取）を使用する前に、以下の「送信先」「送信されるデータ」「利用目的と保護水準」をご確認のうえ、データ送信を許可するか選択してください。")
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .lineSpacing(3)
+
+                    // 1. データの送信先 (Who the Data Is Sent To)
+                    consentCard(
+                        icon: "building.2.crop.circle.fill",
+                        color: .indigo,
+                        title: "1. データの送信先 (Who Data Is Sent To)",
+                        bodyText: """
+                        • 送信先事業者：Google LLC（Google Gemini API / generativelanguage.googleapis.com）
+                        • 開発者サーバーは一切経由せず、お客様が設定したAPIキーを用いて、お客様のiOS端末から Google LLC のサーバーへ直接 HTTPS/TLS 暗号化通信で送信されます。
+                        """
+                    )
+
+                    // 2. 送信されるデータの内容 (What Data Will Be Sent)
+                    consentCard(
+                        icon: "doc.text.magnifyingglass",
+                        color: AppTheme.emerald,
+                        title: "2. 送信されるデータの内容 (What Data Will Be Sent)",
+                        bodyText: """
+                        お客様が各AI機能を実行した際に限り、以下の該当データが Google LLC（Google Gemini API）へ送信されます：
+                        • 【AIアドバイザー相談・AI食事総括】：入力した相談メッセージ、本日の食事記録（料理名・カロリー・PFC）、マイカルテの身体・生活習慣データ（年齢・性別・身長・体重/BMI・体脂肪率・活動レベル・睡眠時間・飲酒/喫煙/妊娠状況・食事制限・アレルギー・既往歴メモ）、登録中の服薬・サプリメント名、および直近の健康診断結果の検査数値サマリ（血圧・コレステロール・肝機能・血糖・HbA1c等の数値のみ）。
+                        • 【写真AI自動読取（食事・健診結果表・医療費領収書/明細書）】：お客様が撮影またはアルバムから選択した対象画像データ。
+                        • 【個人識別情報（PII）およびHealthKitバイタルの除外】：受診者氏名、住所、生年月日、医療機関名（チャット送信時）、保険証記号・番号などの個人識別情報は除外・破棄されます。また、Apple HealthKitの歩数・心拍数・消費カロリー・睡眠データがAIへ送信されることはありません。
+                        """
+                    )
+
+                    // 3. 利用目的と第三者の保護水準 (Purpose & Same or Equal Protection)
+                    consentCard(
+                        icon: "lock.shield.fill",
+                        color: .teal,
+                        title: "3. 利用目的と保護水準 (Purpose & Equal Protection)",
+                        bodyText: """
+                        • 利用目的：お客様が要求した栄養推定、健診・医療費の入力補助（OCR）、および一般的な食生活アドバイスの生成目的にのみ使用されます。広告配信やトラッキングには一切使用されません。
+                        • 同等以上の保護（Same or Equal Protection）：送信先である Google LLC（Google Gemini API）は、暗号化通信および利用規約・データ保護基準に基づき、本アプリのプライバシーポリシーと同等以上の保護措置（Same or Equal Protection）を提供します。
+                        • いつでも「設定 ＞ AI拡張機能設定 ＞ 許可を取り消す」から同意を撤回でき、同意しない場合でも手動記録や食品辞書などの全コア機能を無料でご利用いただけます。
+                        """
+                    )
+
+                    // 4. 明示的な許可・拒否ボタン
+                    VStack(spacing: 10) {
+                        Button(action: {
+                            hasConsentedToThirdPartyAI = true
+                            dismiss()
+                            onAllow?()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.shield.fill")
+                                Text("上記内容を確認し、Google Gemini APIへのデータ送信を許可する (Allow)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .padding(.horizontal, 12)
+                            .background(AppTheme.emerald)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+
+                        Button(role: .cancel, action: {
+                            dismiss()
+                            onCancel?()
+                        }) {
+                            Text("許可しない（データを送信せずキャンセル / Do Not Allow）")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+                .padding(20)
+            }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
+            .navigationTitle("データ送信の事前許可")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        dismiss()
+                        onCancel?()
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func consentCard(icon: String, color: Color, title: String, bodyText: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                    .font(.system(size: 15, weight: .bold))
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.primary)
+            }
+            Text(bodyText)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .lineSpacing(3)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

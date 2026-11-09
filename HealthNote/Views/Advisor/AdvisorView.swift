@@ -13,6 +13,9 @@ public struct AdvisorView: View {
     @State private var inputText: String = ""
     @State private var isSending: Bool = false
     @State private var errorMessage: String? = nil
+    @State private var showingAIConsentSheet: Bool = false
+    @State private var pendingMessageAfterConsent: String? = nil
+    @AppStorage(GeminiService.aiConsentUserDefaultsKey) private var hasConsentedToThirdPartyAI: Bool = false
 
     private var profile: HealthProfile? {
         profiles.first
@@ -91,6 +94,12 @@ public struct AdvisorView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button(action: {
+                            pendingMessageAfterConsent = nil
+                            showingAIConsentSheet = true
+                        }) {
+                            Label("AIデータ送信内容・許可設定を確認", systemImage: "hand.raised.shield")
+                        }
                         Button(role: .destructive, action: { clearHistory() }) {
                             Label("会話履歴をクリア", systemImage: "trash")
                         }
@@ -100,20 +109,55 @@ public struct AdvisorView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingAIConsentSheet) {
+                ThirdPartyAIConsentSheet(
+                    onAllow: {
+                        if let pending = pendingMessageAfterConsent {
+                            pendingMessageAfterConsent = nil
+                            executeSendMessage(trimmed: pending)
+                        }
+                    },
+                    onCancel: {
+                        pendingMessageAfterConsent = nil
+                    }
+                )
+            }
         }
     }
 
-    // MARK: - 1. 医療免責バナー（医師法第17条・薬機法・Guideline 1.4/5.1.3 準拠）
+    // MARK: - 1. 医療免責・データ送信先開示バナー（医師法第17条・薬機法・Guideline 1.4/5.1.2(i)/5.1.3 準拠）
     private var disclaimerBanner: some View {
-        HStack(alignment: .top, spacing: 6) {
-            Image(systemName: "exclamationmark.shield.fill")
-                .foregroundColor(.orange)
-                .font(.system(size: 12))
-                .padding(.top, 1)
-            Text("【医師法・薬機法に基づく免責】AIアドバイザーは医師・医療機関ではありません。病気の診断・治療や医薬品的な効能効果の助言は行わず、日々の食習慣改善の参考情報をお届けします。")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 12))
+                    .padding(.top, 1)
+                Text("【医師法・薬機法に基づく免責】AIアドバイザーは医師・医療機関ではありません。病気の診断・治療や医薬品的な効能効果の助言は行わず、日々の食習慣改善の参考情報をお届けします。")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 6) {
+                Image(systemName: hasConsentedToThirdPartyAI ? "checkmark.shield.fill" : "hand.raised.fill")
+                    .foregroundColor(hasConsentedToThirdPartyAI ? AppTheme.emerald : .indigo)
+                    .font(.system(size: 11))
+                Text("送信先: Google LLC (Google Gemini API) ｜ 送信データ: 相談文・食事記録・カルテ/服薬・健診数値サマリ（氏名等除外）")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                Spacer(minLength: 4)
+                Button(action: {
+                    pendingMessageAfterConsent = nil
+                    showingAIConsentSheet = true
+                }) {
+                    Text(hasConsentedToThirdPartyAI ? "詳細" : "許可設定")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(AppTheme.emerald)
+                        .underline()
+                }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -140,12 +184,29 @@ public struct AdvisorView: View {
                 .font(.system(size: 16, weight: .bold))
 
             if hasApiKey {
-                Text("マイカルテの身体データ・服薬/サプリメント状況や本日の食事記録をもとに、あなたに合った食事バランスや生活習慣のヒントをいつでもアドバイスします。何でもお気軽にご相談ください。")
-                    .font(.system(size: 13))
+                Text("マイカルテの身体・生活習慣データ、服薬/サプリメント名、直近の健診検査数値サマリ（氏名・医療機関名等は除外）、本日の食事記録および相談メッセージを Google LLC（Google Gemini API）へ暗号化送信し、あなたに合った食生活のヒントをアドバイスします。")
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+
+                if !hasConsentedToThirdPartyAI {
+                    Button(action: {
+                        pendingMessageAfterConsent = nil
+                        showingAIConsentSheet = true
+                    }) {
+                        Label("送信データ・送信先を確認してデータ送信を許可する", systemImage: "hand.raised.shield.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(AppTheme.emerald)
+                            .clipShape(Capsule())
+                    }
+                    .padding(.top, 4)
+                }
             } else {
-                Text("本機能は、Gemini APIキーをお持ちの方向けのオプショナル拡張機能です。\nキーをお持ちでない場合でも、他のすべての食事記録、カロリー計算、PFCバランス分析は完全無料で100%ご利用いただけます。\n\nお持ちのキーを活用したい場合は、「設定」画面からご登録いただけます。")
+                Text("本機能は、Gemini APIキーをお持ちの方向けのオプショナル拡張機能です。\nキーをお持ちでない場合でも、他のすべての食事記録、カロリー計算、PFCバランス分析は完全無料で100%ご利用いただけます。\n\nご利用時は「設定」画面からキーを登録のうえ、Google LLC（Google Gemini API）へのデータ送信（相談文・食事記録・カルテ・健診数値サマリ）に事前同意いただくことで有効化されます。")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -263,16 +324,28 @@ public struct AdvisorView: View {
         }
     }
 
-    // MARK: - チャット送信処理
+    // MARK: - チャット送信処理（Guideline 5.1.2(i) 事前許可確認付き）
     private func sendMessage() {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        // APIキー設定済みだが第三者AIへのデータ送信にまだ同意していない場合は、送信前に必ず明示的許可モーダルを表示
+        if GeminiService.shared.getApiKey() != nil && !hasConsentedToThirdPartyAI {
+            inputText = ""
+            pendingMessageAfterConsent = trimmed
+            showingAIConsentSheet = true
+            return
+        }
+
+        inputText = ""
+        executeSendMessage(trimmed: trimmed)
+    }
+
+    private func executeSendMessage(trimmed: String) {
         let userMsg = AdvisorChatMessage(role: .user, content: trimmed)
         modelContext.insert(userMsg)
         try? modelContext.save()
 
-        inputText = ""
         isSending = true
 
         Task {
@@ -301,6 +374,11 @@ public struct AdvisorView: View {
                     modelContext.insert(infoMsg)
                     try? modelContext.save()
                     isSending = false
+                }
+            } catch GeminiError.consentRequired {
+                await MainActor.run {
+                    isSending = false
+                    showingAIConsentSheet = true
                 }
             } catch {
                 await MainActor.run {

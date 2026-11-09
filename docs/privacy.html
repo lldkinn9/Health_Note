@@ -83,31 +83,49 @@
   </header>
   <main>
     <div class="card">
-      <h2>1. 開発者サーバーの不使用（完全サーバーレス設計）</h2>
-      <p>本アプリ（Health Note / ヘルスノート）は、開発者側で管理・運用する外部データベースやWebサーバーを一切持たない完全サーバーレス設計を採用しています。お客様の食事記録、身体データ、健康診断結果、医療費明細、服薬状況、チャット履歴が開発者のサーバーに収集・送信・保存されることは一切ありません。</p>
+      <h2>1. 収集・取り扱うデータと収集方法（What Data the App Collects &amp; How It Is Collected - Guideline 5.1.1(i)）</h2>
+      <p>本アプリ（Health Note / ヘルスノート）は、開発者側で管理・運用する外部データベースやWebサーバーを一切持たない完全サーバーレス設計を採用しています。アプリ内で取り扱われるデータとその取得方法は以下の通りです：</p>
+      <ul>
+        <li><strong>ユーザーによる手動入力データ（User-Entered Data）</strong>：食事記録（料理名・カロリー・PFC）、マイカルテの身体・生活習慣情報（年齢・性別・身長・体重・体脂肪率・活動レベル・睡眠時間・飲酒/喫煙/妊娠状況・食事制限・アレルギー・既往歴メモ）、服薬・サプリメント名、健康診断の検査数値、医療費記録、AIアドバイザー相談メッセージ。</li>
+        <li><strong>カメラ・写真ライブラリからの選択画像（Optional User-Selected Photos）</strong>：食事写真、健康診断結果表の画像、医療費領収書・明細書の画像（お客様が自らカメラ撮影またはアルバムから選択した場合のみ取得）。</li>
+        <li><strong>Apple HealthKit データ（Optional HealthKit Data）</strong>：お客様が明示的に許可した場合に限り、iOSのヘルスケア（HealthKit）から歩数・消費エネルギー・心拍数・睡眠時間・体重・体脂肪率を読み取り、食事のカロリー・PFCを書き込みます。</li>
+        <li><strong>広告配信に関する技術データ（Google AdMob SDK Telemetry）</strong>：デバイス識別子（ATT許可時のみIDFA）、おおよその位置情報、製品操作・広告表示データ、クラッシュ・パフォーマンス診断データ。</li>
+      </ul>
     </div>
 
     <div class="card">
-      <h2>2. データの保存・同期（Apple CloudKit）および削除方法</h2>
-      <p>アプリ内で記録されたすべてのデータは、お客様ご自身のiOS端末内、およびお客様個人のiCloudアカウント（Apple CloudKit Private Database）にのみ暗号化されて保存・同期されます。開発者を含め第三者がこれらのデータにアクセスすることは不可能です。</p>
-      <p>また、アプリ内の「設定」＞「全データを完全に初期化・削除」を実行することで、いつでもお客様ご自身の操作ですべての個人データおよび保存設定を完全に消去することができます。</p>
+      <h2>2. データの保存・同期およびすべての利用目的（Storage, All Uses of Data &amp; Deletion）</h2>
+      <p><strong>【すべての利用目的（All Uses of Data）】</strong>：取得したデータは、(1) アプリ内での栄養・カロリー・PFCバランス計算およびグラフ表示、(2) マイカルテ・健診結果・医療費・服薬履歴の記録管理と月間カレンダー表示、(3) お客様が明示的に許可した場合の任意AI機能（栄養推定・書類OCR入力補助・食生活アドバイス生成）、および (4) 無料提供を維持するためのバナー広告配信（AdMob技術データのみ）の目的にのみ使用されます。</p>
+      <p>アプリ内で記録されたすべての個人・健康データは、お客様ご自身のiOS端末内、およびお客様個人のiCloudアカウント（Apple CloudKit Private Database）にのみ暗号化されて保存・同期されます。開発者のサーバーへ収集・送信・保存されることは一切ありません。</p>
+      <p>また、アプリ内の「設定」＞「全データを完全に初期化・削除」を実行することで、いつでもお客様ご自身の操作ですべての個人データ、保存設定、およびAIデータ送信の同意状態を完全に消去することができます。</p>
     </div>
 
     <div class="card">
-      <h2>3. Apple HealthKit（ヘルスケア）データの取り扱い</h2>
+      <h2>3. Apple HealthKit（ヘルスケア）データの取り扱い（Guideline 5.1.3 準拠）</h2>
       <p>お客様が明示的にアクセスを許可した場合に限り、以下の項目についてApple HealthKitと連携します。</p>
       <ul>
         <li><strong>読み取り項目</strong>：歩数、消費エネルギー（アクティブエネルギーおよび安静時エネルギー）、心拍数、睡眠分析（睡眠時間）、体重、体脂肪率（アプリ内のサマリ・マイカルテ・月間カレンダーへの表示目的のみに使用）</li>
         <li><strong>書き込み項目</strong>：食事で記録した摂取エネルギー（kcal）、タンパク質（g）、脂質（g）、炭水化物（g）</li>
       </ul>
-      <p><strong>【厳格事項（App Store Review Guideline 5.1.3 準拠）】</strong>：Apple HealthKitから取得したいかなるデータも、広告配信・ターゲティング・マーケティング・データマイニング目的で使用することはなく、第三者へ売却・開示・共有することは一切ありません。</p>
+      <p><strong>【厳格事項（App Store Review Guideline 5.1.3 準拠）】</strong>：Apple HealthKitから取得した歩数・消費エネルギー・心拍数・睡眠データが第三者AI（Google Gemini API）や広告事業者へ送信されることは一切ありません。また、HealthKitから取得したいかなるデータも、広告配信・ターゲティング・マーケティング・データマイニング目的で使用することはなく、第三者へ売却・開示・共有することは一切ありません。</p>
     </div>
 
     <div class="card">
-      <h2>4. 任意の第三者AIサービス（Google Gemini API）の利用について</h2>
-      <p>お客様が任意で設定したGoogle Gemini APIキーは、iOS端末のセキュア領域（Keychain）にのみ暗号化保存されます。食事写真解析、栄養総括評価、健診結果表・医療費領収書/明細書の画像自動読取補助、およびAIアドバイザー相談機能を使用する際、解析対象のデータはお客様の端末からGoogleのAPIエンドポイントへ直接HTTPS暗号化通信で送信されます。</p>
-      <p>なお、健診結果表や医療費領収書・明細書の読み取り補助機能においては、受診者の氏名や被保険者記号・番号などの個人識別情報を抽出・保存しないよう制御しています。</p>
-      <p>※Google AI Studioの無料枠（Free Tier）のAPIキーをご利用の場合、Googleの利用規約（Gemini API Additional Terms of Service）に基づき、送信されたデータがGoogleのモデル改善に利用される場合があります。学習利用を希望されない場合は、Google Cloudの有料従量課金プロジェクトで発行されたAPIキーをご利用いただくか、AI機能を使用せず手動記録機能をご利用ください。</p>
+      <h2>4. 第三者AIサービスへのデータ送信・送信先・事前同意および同等保護の確認（Third-Party AI Data Sharing &amp; Equal Protection - Guideline 5.1.1(i) &amp; 5.1.2(i)）</h2>
+      <p><strong>【初期状態（デフォルト）】</strong>：本アプリには内蔵APIキーがなく、初期状態ではいかなる個人データ・健康データも第三者AIサービスへ送信されません。</p>
+      <p><strong>【事前の明示的な許可（Explicit User Permission before Sharing）】</strong>：お客様が任意でご自身の Google Gemini APIキーを「設定」画面で登録し、かつアプリ内の<strong>「第三者AIへのデータ送信の許可確認（Permission to Share Data with Third-Party AI）」モーダル画面</strong>にて送信データの内容と送信先を確認のうえ<strong>「データ送信を許可する（Allow）」</strong>を明示的に選択した場合にのみ、AI機能が有効化されます。お客様はいつでも「設定 ＞ AI拡張機能設定 ＞ 許可を取り消す」から同意を撤回できます。</p>
+      <ul>
+        <li><strong>データの送信先（Who the Data Is Sent To）</strong>：<strong>Google LLC（Google Gemini API / <code>generativelanguage.googleapis.com</code>）</strong>。開発者サーバーは一切経由せず、お客様の端末から Google LLC の API エンドポイントへ直接 HTTPS/TLS 暗号化通信で送信されます。</li>
+        <li><strong>送信されるデータの内容（What Data Will Be Sent）</strong>：
+          <ul>
+            <li><strong>AIアドバイザー相談・本日のAI食事総括</strong>：入力した相談メッセージ、本日の食事記録（料理名・カロリー・PFC）、マイカルテの身体・生活習慣データ（年齢・性別・身長・体重/BMI・体脂肪率・活動レベル・睡眠時間・飲酒/喫煙/妊娠状況・食事制限・アレルギー・既往歴メモ）、登録中の服薬・サプリメント名、および直近の健康診断結果の検査数値サマリ（血圧・コレステロール・肝機能・血糖・HbA1c等の数値のみ）。</li>
+            <li><strong>写真AI自動読取（食事写真・健診結果表・医療費領収書/明細書）</strong>：お客様が自ら撮影またはアルバムから選択した対象画像データ。</li>
+            <li><strong>個人識別情報（PII）の除外</strong>：受診者氏名、ニックネーム、住所、生年月日、医療機関名（チャット送信時）、保険証記号・番号などの個人識別情報は送信データから除外・破棄されます。</li>
+          </ul>
+        </li>
+        <li><strong>第三者による同等以上のデータ保護の確認（Confirmation of Same or Equal Protection by Third Parties）</strong>：本アプリがデータを共有・送信する第三者事業者（<strong>Google LLC：Google Gemini API および Google AdMob</strong>、ならびに <strong>Apple Inc.：iCloud / CloudKit</strong>）は、すべて業界標準の暗号化通信（HTTPS/TLS）および厳格なデータ保護規約・セキュリティ基準を遵守しており、<strong>本プライバシーポリシーに記載された基準および Apple App Store Review Guidelines（Guideline 5.1.1(i) &amp; 5.1.2(i)）が求める水準と同等以上のプライバシーおよびセキュリティ保護（Same or Equal Protection）を提供していることを確認しています</strong>。</li>
+      </ul>
+      <p>※Google AI Studioの無料枠（Free Tier）のAPIキーをご利用の場合、Googleの利用規約（Gemini API Additional Terms of Service）に基づき、送信されたデータがGoogleのモデル改善に利用される場合があります。学習利用を希望されない場合は、Google Cloudの有料従量課金プロジェクトで発行されたAPIキーをご利用いただくか、データ送信許可をオフにして手動記録機能をご利用ください。</p>
     </div>
 
     <div class="card">

@@ -2103,10 +2103,12 @@ public struct HealthCheckEditorSheet: View {
 
     @State private var memo: String = ""
 
-    // 写真・AI読取
+    // 写真・AI読取 & Guideline 5.1.2(i) データ送信事前許可
     @State private var photoItem: PhotosPickerItem? = nil
     @State private var imageData: Data? = nil
     @State private var showingCamera: Bool = false
+    @State private var showingAIConsentSheet: Bool = false
+    @AppStorage(GeminiService.aiConsentUserDefaultsKey) private var hasConsentedToThirdPartyAI: Bool = false
     @State private var isAnalyzing: Bool = false
     @State private var alertMessage: String? = nil
 
@@ -2116,7 +2118,7 @@ public struct HealthCheckEditorSheet: View {
                 // 1. 写真控え ＆ 任意AI自動読取セクション
                 Section(
                     header: Text("結果表の写真添付・AI自動読取（任意）"),
-                    footer: Text("※AI読取はAPIキー設定時のみ使用できる任意の補助機能です（手入力のみでもすべての項目を記録できます）。病院の採血結果など標準項目以外の数値も自動的に「その他の検査項目」へ追加されます。")
+                    footer: Text("※AI読取はAPIキー設定時かつデータ送信に同意いただいた場合のみ使用できる任意の補助機能です（手入力のみでも全項目を記録可能）。実行時、選択した結果表画像が Google LLC（Google Gemini API）へ暗号化送信されます（受診者氏名・住所・生年月日・保険証番号等の個人識別情報は抽出・保存されません）。")
                 ) {
                     if let imageData, let uiImg = UIImage(data: imageData) {
                         ZStack(alignment: .topTrailing) {
@@ -2164,7 +2166,7 @@ public struct HealthCheckEditorSheet: View {
 
                     if imageData != nil {
                         if GeminiService.shared.getApiKey() != nil {
-                            Button(action: { analyzeSheetImage() }) {
+                            Button(action: { requestAnalyzeSheetImage() }) {
                                 HStack {
                                     Spacer()
                                     if isAnalyzing {
@@ -2172,8 +2174,8 @@ public struct HealthCheckEditorSheet: View {
                                         Text("すべての検査数値を読み取り中...")
                                             .font(.system(size: 13, weight: .bold))
                                     } else {
-                                        Label("写真から検査数値をAI自動入力", systemImage: "sparkles")
-                                            .font(.system(size: 14, weight: .bold))
+                                        Label("写真から検査数値をAI自動入力（Google Gemini APIへ送信）", systemImage: "sparkles")
+                                            .font(.system(size: 13, weight: .bold))
                                     }
                                     Spacer()
                                 }
@@ -2352,17 +2354,24 @@ public struct HealthCheckEditorSheet: View {
                     if let data = try? await newItem?.loadTransferable(type: Data.self) {
                         self.imageData = data
                         if GeminiService.shared.getApiKey() != nil {
-                            analyzeSheetImage()
+                            requestAnalyzeSheetImage()
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showingAIConsentSheet) {
+                ThirdPartyAIConsentSheet(
+                    onAllow: {
+                        analyzeSheetImage()
+                    }
+                )
             }
             .fullScreenCover(isPresented: $showingCamera) {
                 ProfileCameraPicker { img in
                     if let data = img.jpegData(compressionQuality: 0.85) {
                         self.imageData = data
                         if GeminiService.shared.getApiKey() != nil {
-                            analyzeSheetImage()
+                            requestAnalyzeSheetImage()
                         }
                     }
                 }
@@ -2470,6 +2479,15 @@ public struct HealthCheckEditorSheet: View {
         extraItems = r.extraItems
         memo = r.memo
         imageData = r.sheetImageData
+    }
+
+    private func requestAnalyzeSheetImage() {
+        guard imageData != nil else { return }
+        if !hasConsentedToThirdPartyAI {
+            showingAIConsentSheet = true
+        } else {
+            analyzeSheetImage()
+        }
     }
 
     private func analyzeSheetImage() {
@@ -2660,6 +2678,8 @@ public struct MedicalExpenseEditorSheet: View {
     @State private var photoItem: PhotosPickerItem? = nil
     @State private var receiptData: Data? = nil
     @State private var showingCamera: Bool = false
+    @State private var showingAIConsentSheet: Bool = false
+    @AppStorage(GeminiService.aiConsentUserDefaultsKey) private var hasConsentedToThirdPartyAI: Bool = false
     @State private var isAnalyzing: Bool = false
     @State private var alertMessage: String? = nil
 
@@ -2689,7 +2709,7 @@ public struct MedicalExpenseEditorSheet: View {
                 // 1. 領収書写真 ＆ 任意AI自動読取
                 Section(
                     header: Text("領収書・明細書の写真添付・AI読取（任意）"),
-                    footer: Text("※AI読取はAPIキー設定時のみ使用できる任意の補助機能です。未設定でも下部から手入力で簡単に記録できます。")
+                    footer: Text("※AI読取はAPIキー設定時かつデータ送信に同意いただいた場合のみ使用できる任意の補助機能です。実行時、選択した書類画像が Google LLC（Google Gemini API）へ暗号化送信されます（患者氏名・住所・保険証番号等の個人識別情報は抽出・保存されません）。")
                 ) {
                     if let receiptData, let uiImg = UIImage(data: receiptData) {
                         ZStack(alignment: .topTrailing) {
@@ -2737,7 +2757,7 @@ public struct MedicalExpenseEditorSheet: View {
 
                     if receiptData != nil {
                         if GeminiService.shared.getApiKey() != nil {
-                            Button(action: { analyzeReceipt() }) {
+                            Button(action: { requestAnalyzeReceipt() }) {
                                 HStack {
                                     Spacer()
                                     if isAnalyzing {
@@ -2745,8 +2765,8 @@ public struct MedicalExpenseEditorSheet: View {
                                         Text("書類を読み取り中...")
                                             .font(.system(size: 13, weight: .bold))
                                     } else {
-                                        Label("書類から日付・金額・明細をAI自動入力", systemImage: "sparkles")
-                                            .font(.system(size: 14, weight: .bold))
+                                        Label("書類から日付・金額・明細をAI自動入力（Google Gemini APIへ送信）", systemImage: "sparkles")
+                                            .font(.system(size: 13, weight: .bold))
                                     }
                                     Spacer()
                                 }
@@ -2839,17 +2859,24 @@ public struct MedicalExpenseEditorSheet: View {
                     if let data = try? await newItem?.loadTransferable(type: Data.self) {
                         self.receiptData = data
                         if GeminiService.shared.getApiKey() != nil {
-                            analyzeReceipt()
+                            requestAnalyzeReceipt()
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showingAIConsentSheet) {
+                ThirdPartyAIConsentSheet(
+                    onAllow: {
+                        analyzeReceipt()
+                    }
+                )
             }
             .fullScreenCover(isPresented: $showingCamera) {
                 ProfileCameraPicker { img in
                     if let data = img.jpegData(compressionQuality: 0.85) {
                         self.receiptData = data
                         if GeminiService.shared.getApiKey() != nil {
-                            analyzeReceipt()
+                            requestAnalyzeReceipt()
                         }
                     }
                 }
@@ -2876,6 +2903,15 @@ public struct MedicalExpenseEditorSheet: View {
         statementDetails = r.statementDetails
         memo = r.memo
         receiptData = r.receiptImageData
+    }
+
+    private func requestAnalyzeReceipt() {
+        guard receiptData != nil else { return }
+        if !hasConsentedToThirdPartyAI {
+            showingAIConsentSheet = true
+        } else {
+            analyzeReceipt()
+        }
     }
 
     private func analyzeReceipt() {
